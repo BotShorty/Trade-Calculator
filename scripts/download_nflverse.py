@@ -1,6 +1,8 @@
+
 #!/usr/bin/env python3
 """Download free NFLverse datasets for the Dynasty IDP Trade Calculator."""
 
+import gzip
 from datetime import datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -46,15 +48,41 @@ def download(url, target, optional=False):
         raise
 
 
+def download_contracts():
+    url = f"{BASE}/contracts/historical_contracts.csv.gz"
+    target = DATA / "historical_contracts.csv"
+    request = Request(
+        url,
+        headers={"User-Agent": "Dynasty-IDP-Trade-Calculator/1.0"}
+    )
+
+    try:
+        with urlopen(request, timeout=180) as response:
+            with gzip.GzipFile(fileobj=response) as source:
+                with target.open("wb") as output:
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        output.write(chunk)
+
+        if target.stat().st_size == 0:
+            target.unlink(missing_ok=True)
+            raise RuntimeError("Contract file is empty")
+
+        print(f"OK: {target.name}")
+
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+
+
 download(
     f"{BASE}/players/players.csv",
     DATA / "players.csv"
 )
 
-download(
-    f"{BASE}/contracts/historical_contracts.csv",
-    DATA / "historical_contracts.csv"
-)
+download_contracts()
 
 for year in range(CURRENT_YEAR, CURRENT_YEAR - YEARS_BACK - 1, -1):
     download(
