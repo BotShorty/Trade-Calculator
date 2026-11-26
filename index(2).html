@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#f4f6f9" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Dynasty Trade Calculator</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --primary: #1a56db;
+      --primary-light: #e8effd;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --radius: 12px;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --fair-green: #15803d;
+      --fair-yellow: #b45309;
+      --fair-orange: #c2410c;
+      --fair-red: #b91c1c;
+      --fair-darkred: #7f1d1d;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); max-width: 540px; margin: 0 auto; min-height: 100vh; overflow-x: hidden; }
+
+    #landscape-warning {
+      display: none; position: fixed; inset: 0; background: var(--surface); z-index: 9999;
+      flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px;
+    }
+    @media screen and (orientation: landscape) and (max-width: 900px) {
+      #landscape-warning { display: flex; }
+    }
+
+    header {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+    }
+    .icon-btn {
+      background: none; border: 1px solid var(--border); border-radius: 10px;
+      width: 40px; height: 40px; font-size: 20px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; color: var(--text); flex-shrink: 0;
+    }
+    .global-search-wrap { position: relative; flex: 1; }
+    .global-search-wrap input {
+      width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); padding: 0 12px; font-size: 14px; outline: none;
+    }
+    .global-search-wrap input:focus { border-color: var(--primary); background: var(--surface); }
+
+    #drawer-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.45); z-index: 200;
+    }
+    #drawer {
+      position: fixed; top: 0; left: -280px; width: 265px; height: 100%; background: var(--surface);
+      z-index: 201; transition: left 0.22s ease; padding: 20px 14px; display: flex; flex-direction: column; gap: 6px;
+    }
+    #drawer.open { left: 0; }
+    .drawer-title { font-weight: 700; font-size: 17px; padding: 8px 10px 14px; border-bottom: 1px solid var(--border); margin-bottom: 6px; color: var(--primary); }
+    .nav-item {
+      text-align: left; background: none; border: none; padding: 12px 14px; border-radius: 10px;
+      font-size: 15px; font-weight: 500; color: var(--text); cursor: pointer;
+    }
+    .nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+
+    main { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .view { display: none; flex-direction: column; gap: 14px; }
+    .view.active { display: flex; }
+
+    .card {
+      background: var(--surface); border-radius: var(--radius); padding: 14px;
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+    }
+    .card h2 { font-size: 16px; margin-bottom: 10px; }
+    .card h3 { font-size: 14px; margin-bottom: 8px; color: var(--muted); }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    .btn {
+      background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn.danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    input[type="text"], input[type="password"], select {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      font-size: 14px; background: var(--surface); color: var(--text);
+    }
+
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 6px; background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+    }
+    .badge.warn { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .badge.info { background: var(--primary-light); color: var(--primary); border-color: #bfdbfe; }
+    .pos-tag { font-weight: 700; font-size: 12px; padding: 3px 7px; border-radius: 6px; background: #e5e7eb; min-width: 36px; text-align: center; display: inline-block; }
+
+    .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .trade-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .trade-total { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .fairness-banner {
+      padding: 12px; border-radius: var(--radius); text-align: center; font-weight: 700; font-size: 15px;
+      border: 1px solid var(--border); background: var(--surface);
+    }
+
+    .player-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .player-row:last-child { border-bottom: none; }
+    .player-meta { display: flex; flex-direction: column; gap: 3px; }
+    .player-name { font-weight: 600; font-size: 14px; }
+    .player-val { font-weight: 800; font-size: 15px; color: var(--primary); white-space: nowrap; }
+
+    #modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.5);
+      z-index: 300; align-items: flex-end; justify-content: center;
+    }
+    #modal-sheet {
+      background: var(--surface); width: 100%; max-width: 540px; max-height: 85vh;
+      border-radius: 18px 18px 0 0; padding: 16px; overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="landscape-warning">
+    <h2>Bitte Hochformat verwenden</h2>
+    <p class="muted" style="margin-top:8px;">Diese App ist ausschließlich für das Hochformat konzipiert.</p>
+  </div>
+
+  <div id="drawer-backdrop" onclick="toggleDrawer(false)"></div>
+  <nav id="drawer" aria-label="Hauptnavigation">
+    <div class="drawer-title">Dynasty Calculator</div>
+    <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">Dashboard</button>
+    <button class="nav-item" data-view="trade" onclick="switchView('trade')">Trade Calculator</button>
+    <button class="nav-item" data-view="search" onclick="switchView('search')">Spielersuche</button>
+    <button class="nav-item" data-view="settings" onclick="switchView('settings')">Einstellungen</button>
+  </nav>
+
+  <header>
+    <button class="icon-btn" onclick="toggleDrawer(true)" aria-label="Menü öffnen">&#9776;</button>
+    <div class="global-search-wrap">
+      <input type="text" id="global-search-input" placeholder="Spieler suchen..." oninput="handleGlobalSearch(this.value)" />
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h2>Liga- &amp; Team-Übersicht</h2>
+          <button class="btn secondary" onclick="manualSync()">Sync</button>
+        </div>
+        <p class="muted" id="sync-status-text">Stand: Noch nicht synchronisiert (Auto-Sync Do. 06:00 Uhr)</p>
+        <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+          <div style="flex:1;">
+            <label class="muted">Deine Strategie</label>
+            <select id="dashboard-strategy" onchange="renderDashboard()">
+              <option value="balanced">Ausgewogen</option>
+              <option value="winnow">Win-Now</option>
+              <option value="rebuild">Rebuild</option>
+            </select>
+          </div>
+          <div style="text-align:right;">
+            <span class="muted">Gesamtwert Kader</span>
+            <div class="trade-total" id="dashboard-team-value">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Dein Kader (inkl. Taxi Squad &amp; IR – 100 % Wertung)</h3>
+        <div id="dashboard-roster-list"></div>
+      </div>
+    </section>
+
+    <!-- 2. TRADE CALCULATOR -->
+    <section id="view-trade" class="view">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h2>Trade Calculator</h2>
+          <button class="btn danger" onclick="confirmTradeReset()">Reset</button>
+        </div>
+        <label class="muted">Tradepartner (Sleeper Username)</label>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <input type="text" id="partner-username" placeholder="Sleeper Username eingeben..." />
+          <button class="btn secondary" onclick="loadTradePartner()">Laden</button>
+        </div>
+        <p class="muted" id="partner-status" style="margin-top:6px;">Kein Partner gewählt (freie Auswahl aktiv)</p>
+      </div>
+
+      <div id="fairness-box" class="fairness-banner">0 % Unterschied – Grün – Fair</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <strong style="font-size:13px;">Deine Seite (Basis 100 %)</strong>
+          <select id="strategy-left" onchange="recalculateTrade()">
+            <option value="balanced">Ausgewogen</option>
+            <option value="winnow">Win-Now</option>
+            <option value="rebuild">Rebuild</option>
+          </select>
+          <div class="trade-total" id="total-left">0</div>
+          <div id="assets-left"></div>
+          <button class="btn secondary" onclick="openAssetPicker('left')">+ Spieler / Pick</button>
+        </div>
+
+        <div class="trade-col">
+          <strong style="font-size:13px;">Gegenseite</strong>
+          <select id="strategy-right" onchange="recalculateTrade()">
+            <option value="balanced">Ausgewogen</option>
+            <option value="winnow">Win-Now</option>
+            <option value="rebuild">Rebuild</option>
+          </select>
+          <div class="trade-total" id="total-right">0</div>
+          <div id="assets-right"></div>
+          <button class="btn secondary" onclick="openAssetPicker('right')">+ Spieler / Pick</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. SPIELERSUCHE -->
+    <section id="view-search" class="view">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h2>Spielersuche &amp; Bewertungen</h2>
+          <select id="search-strategy" style="width:auto;" onchange="renderSearchResults()">
+            <option value="balanced">Ausgewogen</option>
+            <option value="winnow">Win-Now</option>
+            <option value="rebuild">Rebuild</option>
+          </select>
+        </div>
+        <p class="muted" style="margin-bottom:8px;">Sortierung: QB, RB, WR, TE, K, DL, LB, DB (alphabetisch nach Nachnamen)</p>
+        <div id="search-results-list"></div>
+      </div>
+    </section>
+
+    <!-- 4. EINSTELLUNGEN -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <h2>Sleeper-Verbindung (Nur Lesen / HTTPS)</h2>
+        <label class="muted">Dein Sleeper Username</label>
+        <input type="text" id="setting-username" placeholder="Sleeper Username" style="margin:6px 0 10px;" />
+        <label class="muted">Liga-ID (12 Teams)</label>
+        <input type="text" id="setting-league-id" placeholder="Sleeper Liga-ID" style="margin:6px 0 10px;" />
+        <button class="btn" onclick="saveSleeperSettings()">Speichern &amp; Synchronisieren</button>
+      </div>
+
+      <div class="card">
+        <h2>Verschlüsselte lokale Daten &amp; Backup</h2>
+        <p class="muted" style="margin-bottom:10px;">
+          Lokale Speicherung mit AES-GCM. Keine Passwörter werden im Backup gespeichert.
+        </p>
+        <input type="password" id="backup-password" placeholder="Verschlüsselungs-Passwort für Backup" style="margin-bottom:10px;" />
+        <div class="btn-row">
+          <button class="btn" onclick="exportEncryptedBackup()">Backup verschlüsselt exportieren</button>
+          <label class="btn secondary" style="cursor:pointer;">
+            Backup importieren
+            <input type="file" id="backup-file-input" accept=".json" style="display:none;" onchange="importEncryptedBackup(event)" />
+          </label>
+        </div>
+        <p class="muted" id="backup-status" style="margin-top:8px;"></p>
+      </div>
+    </section>
+    <p class="muted" style="text-align:center;font-size:11px;padding:10px 14px;">NFL-Leistungsdaten: nflverse / OverTheCap (CC BY 4.0), saisonale Regular-Season-Statistiken; Zuordnung über GSIS-Spieler-ID. Unabhängiges Fanprojekt, nicht mit der NFL verbunden.</p>
+  </main>
+
+  <div id="modal-backdrop" onclick="closeModal(event)">
+    <div id="modal-sheet" onclick="event.stopPropagation()"></div>
+  </div>
+
+  <script>
+    const APP_STORAGE_KEY = "dynasty_calc_state_v2";
+    const PREFERRED_IDP = new Set(["DL", "LB", "DB"]);
+    const POS_SORT_ORDER = { QB: 1, RB: 2, WR: 3, TE: 4, K: 5, DL: 6, EDGE: 6, DT: 6, NT: 6, DE: 6, LB: 7, DB: 8, S: 8, Safety: 8, CB: 8, Cornerback: 8 };
+
+    // 1. Liga-Scoring aus Pflichtenheft v2.0
+    const LEAGUE_SCORING = {
+      pass_yd: 0.04, pass_td: 4, pass_2pt: 2, pass_int: -3,
+      rush_yd: 0.1, rush_td: 6, rush_2pt: 2,
+      rec: 1, rec_yd: 0.1, rec_td: 6, rec_2pt: 2,
+      fgm_0_19: 3, fgm_20_29: 3, fgm_30_39: 3, fgm_40_49: 4, fgm_50p: 5,
+      xpm: 1, fgmiss: -1, xpmiss: -1,
+      fum: -1, fum_lost: -2, fum_rec_td: 6,
+      idp_td: 6, idp_sack: 4, idp_qb_hit: 1, idp_tfl: 2, idp_blk_kick: 3,
+      idp_int: 6, idp_fum_rec: 2, idp_ff: 4, idp_safe: 10,
+      idp_tkl_ast: 0.5, idp_tkl_solo: 1.5, idp_pass_def: 3
+    };
+
+    // 2. Gewichtungen: Spieler-Marktwert entfernt, die übrigen Faktoren
+    // werden proportional auf 100 % normiert (für Offense, IDP und K).
+    const PLAYER_WEIGHTS = {
+      perf: 0.30 / 0.95,
+      agePot: 0.30 / 0.95,
+      snap: 0.10 / 0.95,
+      teamContract: 0.15 / 0.95,
+      draftCap: 0.10 / 0.95
+    };
+
+    // 3. Historische Saisongewichtung & Strategie-Horizonte
+    // Gewicht relativ zur jeweils aktuellen NFL-Saison:
+    // aktuelle Saison = 100 %, letzte Saison = 100 %, danach 85/60/40/15/5/1 %.
+    // Dadurch wird z. B. 2025 in 2026 mit 100 %, in 2027 mit 85 % und in 2028 mit 60 % gewichtet.
+    const SEASON_WEIGHTS_BY_AGE = [1.00, 1.00, 0.85, 0.60, 0.40, 0.15, 0.05, 0.01];
+
+    function getSeasonWeight(season, currentSeason = appState.settings.currentSeason) {
+      const seasonAge = Number(currentSeason) - Number(season);
+      if (!Number.isInteger(seasonAge) || seasonAge < 0) return 0;
+      return SEASON_WEIGHTS_BY_AGE[seasonAge] ?? 0;
+    }
+
+    // NFL-Leistungsdaten: nflverse, nur Regular Season, GSIS-ID statt Namensvergleich.
+    const NFLVERSE_STATS_URL = year => `./data/stats_player_reg_${year}.csv`;
+    const NFL_PERFORMANCE_YEARS = 7; // aktuelle Saison plus sieben zurückliegende Spielzeiten
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], field = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (quoted) {
+          if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+          else if (ch === '"') quoted = false;
+          else field += ch;
+        } else if (ch === '"') quoted = true;
+        else if (ch === ',') { row.push(field); field = ""; }
+        else if (ch === '\n') { row.push(field.replace(/\r$/, "")); rows.push(row); row = []; field = ""; }
+        else field += ch;
+      }
+      if (field.length || row.length) { row.push(field.replace(/\r$/, "")); rows.push(row); }
+      if (!rows.length) return [];
+      const headers = rows.shift().map(h => String(h || "").replace(/^\\uFEFF/, "").trim());
+      return rows.filter(r => r.length === headers.length).map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]])));
+    }
+
+    function statNum(row, ...keys) {
+      for (const key of keys) {
+        const value = Number(row[key]);
+        if (row[key] !== undefined && row[key] !== "" && Number.isFinite(value)) return value;
+      }
+      return 0;
+    }
+
+    function nflPositionGroup(position) {
+      const p = String(position || "").toUpperCase();
+      if (["QB", "RB", "WR", "TE", "K"].includes(p)) return p;
+      if (["DL", "DE", "DT", "NT", "EDGE"].includes(p)) return "DL";
+      if (p === "LB") return "LB";
+      if (["DB", "CB", "S", "FS", "SS"].includes(p)) return "DB";
+      return null;
+    }
+
+    function scoreNflSeason(row, posGroup) {
+      const s = LEAGUE_SCORING;
+      if (posGroup === "QB" || posGroup === "RB" || posGroup === "WR" || posGroup === "TE") {
+        const fumbles = statNum(row, "sack_fumbles") + statNum(row, "rushing_fumbles") + statNum(row, "receiving_fumbles");
+        const lost = statNum(row, "sack_fumbles_lost") + statNum(row, "rushing_fumbles_lost") + statNum(row, "receiving_fumbles_lost");
+        return statNum(row, "passing_yards") * s.pass_yd
+          + statNum(row, "passing_tds") * s.pass_td
+          + statNum(row, "passing_2pt_conversions") * s.pass_2pt
+          + statNum(row, "passing_interceptions", "interceptions") * s.pass_int
+          + statNum(row, "rushing_yards") * s.rush_yd
+          + statNum(row, "rushing_tds") * s.rush_td
+          + statNum(row, "rushing_2pt_conversions") * s.rush_2pt
+          + statNum(row, "receptions") * s.rec
+          + statNum(row, "receiving_yards") * s.rec_yd
+          + statNum(row, "receiving_tds") * s.rec_td
+          + statNum(row, "receiving_2pt_conversions") * s.rec_2pt
+          + fumbles * s.fum + lost * s.fum_lost
+          + statNum(row, "fumble_recovery_tds") * s.fum_rec_td;
+      }
+      if (posGroup === "DL" || posGroup === "LB" || posGroup === "DB") {
+        // Gemäß Liga-Scoring zählt ein Sack zusätzlich als TFL, QB-Hit und (falls erfasst) Solo-Tackle.
+        return statNum(row, "def_tds") * s.idp_td
+          + statNum(row, "def_sacks") * s.idp_sack
+          + (statNum(row, "def_qb_hits") + statNum(row, "def_sacks")) * s.idp_qb_hit
+          + (statNum(row, "def_tackles_for_loss") + statNum(row, "def_sacks")) * s.idp_tfl
+          + (statNum(row, "def_punt_blocks") + statNum(row, "def_pat_blocks") + statNum(row, "def_fg_blocks")) * s.idp_blk_kick
+          + statNum(row, "def_interceptions") * s.idp_int
+          + (statNum(row, "fumble_recovery_own") + statNum(row, "fumble_recovery_opp")) * s.idp_fum_rec
+          + statNum(row, "def_fumbles_forced") * s.idp_ff
+          + statNum(row, "def_safeties", "def_safety") * s.idp_safe
+          + statNum(row, "def_tackles_solo") * s.idp_tkl_solo
+          + statNum(row, "def_tackle_assists") * s.idp_tkl_ast
+          + statNum(row, "def_pass_defended") * s.idp_pass_def
+          + statNum(row, "fumble_recovery_tds") * s.fum_rec_td;
+      }
+      if (posGroup === "K") {
+        const xpMade = statNum(row, "pat_made", "xpm");
+        return statNum(row, "fg_made_0_19") * s.fgm_0_19
+          + statNum(row, "fg_made_20_29") * s.fgm_20_29
+          + statNum(row, "fg_made_30_39") * s.fgm_30_39
+          + statNum(row, "fg_made_40_49") * s.fgm_40_49
+          + (statNum(row, "fg_made_50_59") + statNum(row, "fg_made_60_", "fg_made_50_plus", "fg_made_50p")) * s.fgm_50p
+          + xpMade * s.xpm
+          + statNum(row, "fg_missed", "fgmiss") * s.fgmiss
+          + statNum(row, "pat_missed", "xpmiss") * s.xpmiss;
+      }
+      return null;
+    }
+
+    async function loadNflPerformanceData() {
+      const currentSeason = Number(appState.settings.currentSeason) || new Date().getFullYear();
+      const years = Array.from({ length: NFL_PERFORMANCE_YEARS + 1 }, (_, i) => currentSeason - i)
+        .filter(year => getSeasonWeight(year, currentSeason) > 0);
+      const seasonRows = [];
+      const errors = [];
+      const downloads = await Promise.all(years.map(async year => {
+        try {
+          const response = await fetch(NFLVERSE_STATS_URL(year), { cache: "no-cache" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const csv = await response.text();
+          if (!csv || !csv.includes("player_id") || !csv.includes("season")) throw new Error("CSV-Format unerwartet");
+          return { year, rows: parseCsv(csv) };
+        } catch (error) {
+          errors.push(`${year}: ${error.message}`);
+          return null;
+        }
+      }));
+
+      downloads.filter(Boolean).forEach(({ year, rows }) => {
+        const grouped = new Map();
+        rows.forEach(row => {
+          if (String(row.season_type || "REG").toUpperCase() !== "REG") return;
+          const gsisId = String(row.player_id || row.gsis_id || "").trim();
+          if (!gsisId) return;
+          const posGroup = nflPositionGroup(row.position);
+          if (!posGroup) return;
+          const points = scoreNflSeason(row, posGroup);
+          const games = statNum(row, "games");
+          if (points == null || games <= 0) return;
+          const key = `${gsisId}|${posGroup}`;
+          const prior = grouped.get(key) || { gsisId, posGroup, points: 0, games: 0 };
+          prior.points += points;
+          prior.games += games;
+          grouped.set(key, prior);
+        });
+        grouped.forEach(item => {
+          const weight = getSeasonWeight(year, currentSeason);
+          if (!item.history) item.history = [];
+          item.history.push({ season: year, pointsPerGame: item.points / item.games, games: item.games, weight });
+          seasonRows.push(item);
+        });
+      });
+
+      // Zusammenführen der Saisons pro eindeutiger GSIS-ID und Positionsgruppe.
+      const histories = new Map();
+      seasonRows.forEach(item => {
+        const key = `${item.gsisId}|${item.posGroup}`;
+        if (!histories.has(key)) histories.set(key, { gsisId: item.gsisId, posGroup: item.posGroup, weightedPoints: 0, weightedGames: 0, seasons: 0 });
+        const target = histories.get(key);
+        const season = item.history?.[0];
+        if (!season) return;
+        target.weightedPoints += season.pointsPerGame * season.games * season.weight;
+        target.weightedGames += season.games * season.weight;
+        target.seasons++;
+      });
+
+      const byPosition = new Map();
+      histories.forEach(item => {
+        if (item.weightedGames <= 0) return;
+        item.weightedPpg = item.weightedPoints / item.weightedGames;
+        if (!byPosition.has(item.posGroup)) byPosition.set(item.posGroup, []);
+        byPosition.get(item.posGroup).push(item);
+      });
+
+      const scoreByIdAndPosition = new Map();
+      byPosition.forEach((items, posGroup) => {
+        items.sort((a, b) => a.weightedPpg - b.weightedPpg);
+        const n = items.length;
+        // Bei nur einem Vergleichsspieler ist kein belastbares Perzentil bestimmbar.
+        if (n < 2) return;
+        items.forEach((item, index) => {
+          const percentile = (index / (n - 1)) * 100;
+          scoreByIdAndPosition.set(`${item.gsisId}|${posGroup}`, Math.round(percentile * 10) / 10);
+        });
+      });
+
+      if (downloads.some(Boolean)) Object.values(appState.players).forEach(player => { player.perfScore = null; player.perfDataSeasons = 0; });
+      let matched = 0;
+      Object.values(appState.players).forEach(player => {
+        const gsisId = String(player.gsis_id || "").trim();
+        const posGroup = nflPositionGroup(player.pos);
+        if (!gsisId || !posGroup) return;
+        const score = scoreByIdAndPosition.get(`${gsisId}|${posGroup}`);
+        if (score == null) return; // Fehlende Daten bleiben fehlend, kein Ersatzwert.
+        player.perfScore = score;
+        player.perfDataSeasons = histories.get(`${gsisId}|${posGroup}`)?.seasons || 0;
+        player.perfUpdatedAt = Date.now();
+        matched++;
+      });
+      return { matched, loadedSeasons: downloads.filter(Boolean).length, totalSeasons: years.length, errors };
+    }
+
+    // Snap Counts: ausschließlich Offense-/Defense-Snaps; Special Teams werden ignoriert.
+    const NFLVERSE_PLAYERS_URL = "./data/players.csv";
+    const NFLVERSE_SNAP_URL = year => `./data/snap_counts_${year}.csv`;
+    const NFLVERSE_CONTRACTS_URL = "./data/historical_contracts.csv";
+
+    function snapPositionGroup(position) {
+      const p = String(position || "").toUpperCase();
+      if (["QB", "RB", "WR", "TE"].includes(p)) return "OFF";
+      if (["DL", "DE", "DT", "NT", "EDGE", "LB", "DB", "CB", "S", "FS", "SS"].includes(p)) return "DEF";
+      return null; // Kicker und unbekannte Positionen erhalten keine Snap-Bewertung.
+    }
+
+    async function loadNflSnapData() {
+      const currentSeason = Number(appState.settings.currentSeason) || new Date().getFullYear();
+      const years = Array.from({length: NFL_PERFORMANCE_YEARS + 1}, (_, i) => currentSeason - i)
+        .filter(year => getSeasonWeight(year, currentSeason) > 0);
+      const errors = [];
+      let idRows;
+      try {
+        const res = await fetch(NFLVERSE_PLAYERS_URL, {cache:"no-cache"});
+        if (!res.ok) throw new Error(`Spieler-ID-Datei HTTP ${res.status}`);
+        idRows = parseCsv(await res.text());
+      } catch (e) { return {matched:0, loadedSeasons:0, totalSeasons:years.length, ambiguousPfrIds:0, errors:[e.message]}; }
+      const pfrToGsis = new Map(), ambiguous = new Set();
+      idRows.forEach(r => {
+        const pfr = String(r.pfr_id || "").trim(), gsis = String(r.gsis_id || "").trim();
+        if (!pfr || !gsis) return;
+        if (pfrToGsis.has(pfr) && pfrToGsis.get(pfr) !== gsis) ambiguous.add(pfr);
+        else pfrToGsis.set(pfr, gsis);
+      });
+      ambiguous.forEach(id => pfrToGsis.delete(id));
+      const sleeperByGsis = new Map(), ambiguousGsis = new Set();
+      Object.values(appState.players).forEach(pl => {
+        const id = String(pl.gsis_id || "").trim(); if (!id) return;
+        if (sleeperByGsis.has(id) && sleeperByGsis.get(id) !== pl.id) ambiguousGsis.add(id);
+        else sleeperByGsis.set(id, pl.id);
+      });
+      ambiguousGsis.forEach(id => sleeperByGsis.delete(id));
+      const accum = new Map();
+      const results = await Promise.all(years.map(async year => {
+        try {
+          const res = await fetch(NFLVERSE_SNAP_URL(year), {cache:"no-cache"});
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const csv = await res.text();
+          if (!csv.includes("pfr_player_id") || !csv.includes("offense_pct") || !csv.includes("defense_pct")) throw new Error("Snap-CSV-Format unerwartet");
+          return {year, rows:parseCsv(csv)};
+        } catch(e) { errors.push(`${year}: ${e.message}`); return null; }
+      }));
+      results.filter(Boolean).forEach(({year, rows}) => {
+        const perPlayer = new Map();
+        rows.forEach(r => {
+          if (String(r.game_type || "REG").toUpperCase() !== "REG") return;
+          const gsis = pfrToGsis.get(String(r.pfr_player_id || "").trim());
+          if (!gsis || !sleeperByGsis.has(gsis)) return;
+          const pl = appState.players[sleeperByGsis.get(gsis)];
+          const eligible = [pl.pos, ...(pl.positions || [])].some(pos => snapPositionGroup(pos) !== null);
+          if (!eligible) return;
+          const prev = perPlayer.get(gsis) || {OFF:{sum:0,count:0},DEF:{sum:0,count:0}};
+          ["OFF","DEF"].forEach(group => {
+            const pct = Number(group === "OFF" ? r.offense_pct : r.defense_pct);
+            // nflverse liefert Snap-Anteile bereits als Prozentwerte von 0 bis 100.
+            if (!Number.isFinite(pct) || pct < 0 || pct > 100) return;
+            prev[group].sum += pct; prev[group].count++;
+          });
+          perPlayer.set(gsis, prev);
+        });
+        perPlayer.forEach((v, gsis) => {
+          const prior = accum.get(gsis) || {OFF:{weighted:0,weight:0},DEF:{weighted:0,weight:0},seasons:0};
+          const recency = getSeasonWeight(year, currentSeason);
+          ["OFF","DEF"].forEach(group => {
+            // Jede tatsächlich erfasste Partie zählt; jüngere Saisons erhalten zusätzlich den Saisonfaktor.
+            prior[group].weighted += v[group].sum * recency;
+            prior[group].weight += v[group].count * recency;
+          });
+          prior.seasons++; accum.set(gsis, prior);
+        });
+      });
+      if (results.some(Boolean)) Object.values(appState.players).forEach(pl => { pl.snapPct = null; pl.snapPctByGroup = null; pl.snapDataSeasons = 0; });
+      let matched = 0;
+      accum.forEach((v, gsis) => {
+        const sleeperId = sleeperByGsis.get(gsis), pl = sleeperId && appState.players[sleeperId];
+        if (!pl) return;
+        const byGroup = {};
+        ["OFF","DEF"].forEach(group => { if (v[group].weight > 0) byGroup[group] = v[group].weighted / v[group].weight; });
+        if (!Object.keys(byGroup).length) return;
+        pl.snapPctByGroup = byGroup;
+        const primaryGroup = snapPositionGroup(pl.pos);
+        pl.snapPct = primaryGroup ? (byGroup[primaryGroup] ?? null) : null;
+        pl.snapDataSeasons = v.seasons;
+        pl.snapUpdatedAt = Date.now(); matched++;
+      });
+      return {matched, loadedSeasons:results.filter(Boolean).length, totalSeasons:years.length, ambiguousPfrIds:ambiguous.size + ambiguousGsis.size, errors};
+    }
+
+    // Vertragsdaten von OverTheCap über nflverse. Teamwechsel sind reine Information,
+    // Dead Cap wird nicht verwendet. Verknüpfung über eindeutigen Spielernamen + Position,
+    // da die veröffentlichte CSV keine GSIS-ID enthält.
+    function contractPositionGroup(position) {
+      const p = String(position || "").toUpperCase();
+      if (["QB","RB","WR","TE","K"].includes(p)) return p;
+      if (["DL","DE","DT","NT","EDGE"].includes(p)) return "DL";
+      if (p === "LB") return "LB";
+      if (["DB","CB","S","FS","SS"].includes(p)) return "DB";
+      return null;
+    }
+
+    function normalizeContractName(name) {
+      return String(name || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "")
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function clampScore(v) { return Math.max(0, Math.min(100, v)); }
+
+    async function loadNflContractData() {
+      const errors = [];
+      try {
+        const res = await fetch(NFLVERSE_CONTRACTS_URL, {cache:"no-cache"});
+        if (!res.ok) throw new Error(`Vertrags-CSV HTTP ${res.status}`);
+        const csv = await res.text();
+        const rows = parseCsv(csv);
+        // Für die Vertragsbewertung werden ausschließlich Spieler, Position,
+        // Aktiv-Status, Unterschriftsjahr und ursprüngliche Vertragsjahre benötigt.
+        const required = ["player","position","is_active","year_signed","years"];
+        const headers = rows.length ? Object.keys(rows[0]) : [];
+        if (!required.every(h => headers.includes(h))) throw new Error("Vertrags-CSV-Format unerwartet (erwartet player/position/is_active/year_signed/years)");
+        const currentSeason = Number(appState.settings.currentSeason) || new Date().getFullYear();
+
+        Object.values(appState.players).forEach(pl => {
+          pl.contractScore = null;
+          pl.contractYearsRemaining = null;
+          delete pl.contractTeam;
+          delete pl.contractYearSigned;
+          delete pl.contractValue;
+          delete pl.contractApy;
+          delete pl.contractGuaranteed;
+        });
+
+        const contractsByKey = new Map();
+        rows.forEach(r => {
+          if (!["true","1"].includes(String(r.is_active).trim().toLowerCase())) return;
+          const name = normalizeContractName(r.player);
+          const position = contractPositionGroup(r.position);
+          const yearSigned = Number(r.year_signed), years = Number(r.years);
+          if (!name || !position || !Number.isFinite(yearSigned) || !Number.isFinite(years) || years < 0) return;
+          const c = {name, position, yearSigned, years};
+          const key = `${name}|${position}`;
+          if (!contractsByKey.has(key)) contractsByKey.set(key, []);
+          contractsByKey.get(key).push(c);
+        });
+
+        const playersByKey = new Map();
+        Object.values(appState.players).forEach(pl => {
+          const name = normalizeContractName(pl.name), position = contractPositionGroup(pl.pos);
+          if (!name || !position) return;
+          const key = `${name}|${position}`;
+          if (!playersByKey.has(key)) playersByKey.set(key, []);
+          playersByKey.get(key).push(pl);
+        });
+
+        const matchedContracts = [];
+        let ambiguous = 0;
+        playersByKey.forEach((players, key) => {
+          const all = contractsByKey.get(key) || [];
+          if (!all.length) return;
+          // Teamdaten aus dem Vertragsfeed werden bewusst nicht verwendet:
+          // das aktuelle Team kommt ausschließlich aus Sleeper und Teamwechsel
+          // dürfen die Vertragszuordnung oder Bewertung nicht beeinflussen.
+          if (players.length !== 1) { ambiguous++; return; }
+          const pl = players[0];
+          const newestYear = Math.max(...all.map(c => c.yearSigned));
+          const candidates = all.filter(c => c.yearSigned === newestYear);
+          const terms = new Set(candidates.map(c => c.years));
+          // Bei widersprüchlichen Vertragslängen im selben Unterschriftsjahr
+          // keine willkürliche Zuordnung vornehmen.
+          if (terms.size !== 1) { ambiguous++; return; }
+          matchedContracts.push({player:pl, contract:candidates[0]});
+        });
+
+        let matched = 0;
+        matchedContracts.forEach(({player:pl, contract:c}) => {
+          const remaining = Math.max(0, c.years - (currentSeason - c.yearSigned));
+          pl.contractYearsRemaining = remaining;
+          // Nur die Restlaufzeit zählt: 0 Jahre = 0 Punkte, ab 5 Jahren = 100.
+          pl.contractScore = clampScore((remaining / 5) * 100);
+          pl.contractUpdatedAt = Date.now();
+          matched++;
+        });
+        return {matched,totalContracts:matchedContracts.length,ambiguous,errors};
+      } catch(e) {
+        errors.push(e.message);
+        return {matched:0,totalContracts:0,ambiguous:0,errors};
+      }
+    }
+
+    const STRATEGY_HORIZONS = {
+      winnow:   [0.80, 0.20, 0.00, 0.00, 0.00, 0.00],
+      balanced: [0.20, 0.20, 0.20, 0.20, 0.20, 0.00],
+      rebuild:  [0.00, 0.10, 0.15, 0.25, 0.25, 0.25]
+    };
+
+    // 4. Positions-Alterskurven (Peak-Fenster)
+    const AGE_CURVES = {
+      QB: { peakStart: 26, peakEnd: 33, decay: 0.04 },
+      RB: { peakStart: 22, peakEnd: 25, decay: 0.14 },
+      WR: { peakStart: 24, peakEnd: 28, decay: 0.09 },
+      TE: { peakStart: 25, peakEnd: 29, decay: 0.08 },
+      K:  { peakStart: 25, peakEnd: 35, decay: 0.02 },
+      DL: { peakStart: 25, peakEnd: 29, decay: 0.08 },
+      LB: { peakStart: 24, peakEnd: 28, decay: 0.09 },
+      DB: { peakStart: 24, peakEnd: 28, decay: 0.10 }
+    };
+
+    // 5. Vollständige Basiswerte für alle 84 Picks (Runden 1–7, Plätze 1–12)
+    const PICK_BASE_VALUES = {
+      1: [5000, 4600, 4250, 3950, 3700, 3450, 3200, 2950, 2700, 2500, 2300, 2100],
+      2: [1800, 1700, 1600, 1500, 1400, 1300, 1200, 1100, 1000, 900, 800, 700],
+      3: [600, 570, 540, 510, 480, 450, 420, 390, 360, 330, 300, 270],
+      4: [150, 145, 140, 135, 130, 125, 120, 115, 110, 105, 100, 95],
+      5: [80, 77, 74, 71, 68, 65, 62, 59, 56, 53, 50, 47],
+      6: [35, 33, 31, 29, 27, 25, 23, 21, 19, 17, 15, 13],
+      7: [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    };
+
+    // Globaler App-Zustand
+    let appState = {
+      settings: { username: "", leagueId: "", currentWeek: 1, currentSeason: 2026 },
+      lastSyncTimestamp: null,
+      players: {},
+      rosters: [],
+      users: {},
+      pickMarket: {},
+      leaguePicks: [],
+      tradeLeft: [],
+      tradeRight: []
+    };
+
+    // Einheitliche IDP-Positionsgruppen: alle DL-Varianten werden DL,
+    // CB/FS/SS sowie Safety-Varianten werden DB. Keine Positionswarnungen.
+    function normalizePosition(pos) {
+      const p = String(pos || "").trim().toUpperCase();
+      if (["DL", "DE", "DT", "NT", "EDGE"].includes(p)) return "DL";
+      if (["DB", "CB", "CORNERBACK", "S", "FS", "SS", "SAFETY"].includes(p)) return "DB";
+      return p;
+    }
+
+    function getPositionGroup(pos) {
+      return normalizePosition(pos);
+    }
+
+    function isPreferredPosition(pos) {
+      return true;
+    }
+
+    function getAgeMultiplier(posGroup, age) {
+      const curve = AGE_CURVES[posGroup] || AGE_CURVES.WR;
+      if (age < curve.peakStart) return Math.max(0.75, 1 - (curve.peakStart - age) * 0.04);
+      if (age <= curve.peakEnd) return 1.0;
+      return Math.max(0.15, 1 - (age - curve.peakEnd) * curve.decay);
+    }
+
+    function getDraftCapitalFactor(yearsExp) {
+      if (yearsExp <= 1) return 1.0;
+      if (yearsExp === 2) return 0.85;
+      if (yearsExp === 3) return 0.65;
+      if (yearsExp === 4) return 0.40;
+      if (yearsExp === 5) return 0.15;
+      return 0.0;
+    }
+
+    // Einzelposition eines Spielers bewerten (0 - 9.500 Skala)
+    function evaluatePlayerForPosition(player, pos, strategyKey) {
+      const posGroup = getPositionGroup(pos);
+      const normalizedPos = normalizePosition(pos);
+      const baseWeights = PLAYER_WEIGHTS;
+
+      const perfScore = Number.isFinite(player.perfScore) ? player.perfScore : null;
+
+      const horizon = STRATEGY_HORIZONS[strategyKey] || STRATEGY_HORIZONS.balanced;
+      let projectedAgePot = null;
+      if (Number.isFinite(player.age)) {
+        projectedAgePot = 0;
+        for (let yr = 0; yr < 6; yr++) {
+          const futureAge = player.age + yr;
+          const ageMult = getAgeMultiplier(posGroup, futureAge);
+          // Mangels verlässlicher individueller Rollenprognose gilt ein einheitlicher Basiswert von 0,75.
+          const roleProb = player.roleProb ?? 0.75;
+          projectedAgePot += horizon[yr] * (65 + 35 * roleProb) * ageMult;
+        }
+      }
+
+      const snapGroup = snapPositionGroup(pos);
+      const snapValue = snapGroup ? (player.snapPctByGroup?.[snapGroup] ?? player.snapPct ?? null) : null;
+      const snapScore = snapValue != null ? Math.min(100, snapValue) : null;
+      const contractScore = player.contractScore != null ? player.contractScore : null;
+
+      let draftScore = 0;
+      if (player.draftRound && player.draftPick) {
+        const rawDraft = Math.max(5, 100 - ((player.draftRound - 1) * 14 + (player.draftPick % 32) * 0.4));
+        const withUptrade = player.uptrade ? Math.min(100, rawDraft * 1.10) : rawDraft;
+        draftScore = withUptrade * getDraftCapitalFactor(player.yearsExp || 1);
+      }
+
+      const week = appState.settings.currentWeek || 1;
+      const isRookie = (player.yearsExp || 0) === 0;
+      const rookieWeight = isRookie ? Math.max(0, 1 - week * 0.06) : 0;
+      const effectiveDraftScore = isRookie ? Math.max(draftScore, (player.rookieBase || 60) * rookieWeight) : draftScore;
+
+      const components = [
+        { val: perfScore, w: baseWeights.perf },
+        { val: projectedAgePot, w: baseWeights.agePot },
+        { val: snapScore, w: baseWeights.snap },
+        { val: contractScore, w: baseWeights.teamContract },
+        { val: effectiveDraftScore, w: baseWeights.draftCap }
+      ];
+
+      let validWeightSum = 0;
+      let weightedSum = 0;
+      const missingFields = [];
+
+      components.forEach((c, idx) => {
+        if (c.w > 0 && c.val != null) {
+          validWeightSum += c.w;
+          weightedSum += c.val * c.w;
+        } else if (c.w > 0 && c.val == null) {
+          if (idx === 0) missingFields.push("NFL-Leistung");
+          if (idx === 1) missingFields.push("Alter/Projektion");
+          if (idx === 2 && snapGroup) missingFields.push("Snaps");
+          if (idx === 3) missingFields.push("Vertrag");
+        }
+      });
+
+      const normalized0to100 = validWeightSum > 0 ? (weightedSum / validWeightSum) : null;
+      if (normalized0to100 == null) return { value: 0, pos: normalizedPos, isPreferred: true, missingFields: ["Keine Bewertungsdaten"] };
+      const finalValue = Math.round(Math.pow(normalized0to100 / 100, 1.35) * 9500);
+
+      return { value: finalValue, pos: normalizedPos, isPreferred: true, missingFields };
+    }
+
+    function getBestPlayerEvaluation(player, strategyKey) {
+      const positions = (player.positions && player.positions.length) ? player.positions : [player.pos || "WR"];
+      let best = null;
+      positions.forEach(p => {
+        const res = evaluatePlayerForPosition(player, p, strategyKey);
+        if (!best || res.value > best.value) best = res;
+      });
+      return best;
+    }
+
+    function evaluatePick(pick) {
+      const round = pick.round || 1;
+      const slot = pick.slot || 6;
+      const key = `R${round}_S${String(slot).padStart(2, "0")}`;
+      const baseVal = (PICK_BASE_VALUES[round] && PICK_BASE_VALUES[round][slot - 1]) || 100;
+      const marketEntry = appState.pickMarket[key];
+      const currentBase = marketEntry ? marketEntry.value : baseVal;
+
+      const yearDiff = Math.max(0, Math.min(3, (pick.season || appState.settings.currentSeason) - appState.settings.currentSeason));
+      const futureMultiplier = 1 - (yearDiff * 0.10);
+      return Math.round(currentBase * futureMultiplier);
+    }
+
+    function applyTradeToPickMarket(round, slot, impliedTradeValue) {
+      const key = `R${round}_S${String(slot).padStart(2, "0")}`;
+      const baseVal = PICK_BASE_VALUES[round][slot - 1];
+      if (!appState.pickMarket[key]) {
+        appState.pickMarket[key] = { value: baseVal, shares: 100 };
+      }
+      const entry = appState.pickMarket[key];
+      entry.value = ((entry.value * entry.shares) + impliedTradeValue) / (entry.shares + 1);
+      entry.shares += 1;
+    }
+
+    // --- NAVIGATION & GLOBALE SUCHE ---
+    function toggleDrawer(open) {
+      document.getElementById("drawer").classList.toggle("open", open);
+      document.getElementById("drawer-backdrop").style.display = open ? "block" : "none";
+    }
+
+    function switchView(viewName) {
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById("view-" + viewName).classList.add("active");
+      document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === viewName));
+      toggleDrawer(false);
+      if (viewName === "dashboard") renderDashboard();
+      if (viewName === "search") renderSearchResults();
+      if (viewName === "trade") recalculateTrade();
+    }
+
+    function handleGlobalSearch(query) {
+      if (query.trim().length > 0 && !document.getElementById("view-search").classList.contains("active")) {
+        switchView("search");
+      }
+      renderSearchResults();
+    }
+
+    // --- SORTIERUNG: QB, RB, WR, TE, K, DL, LB, DB + Alphabetisch nach Nachnamen ---
+    function sortPlayersStrict(playerList) {
+      return [...playerList].sort((a, b) => {
+        const groupA = POS_SORT_ORDER[getPositionGroup(a.pos)] || 99;
+        const groupB = POS_SORT_ORDER[getPositionGroup(b.pos)] || 99;
+        if (groupA !== groupB) return groupA - groupB;
+        const lastA = (a.lastName || a.name.split(" ").pop() || "").toLowerCase();
+        const lastB = (b.lastName || b.name.split(" ").pop() || "").toLowerCase();
+        return lastA.localeCompare(lastB, "de");
+      });
+    }
+
+    // --- DONNERSTAG 06:00 UHR SYNC-PRÜFUNG (Europe/Berlin) ---
+    function getLastThursday0600Berlin() {
+      const now = new Date();
+      const berlinStr = now.toLocaleString("en-US", { timeZone: "Europe/Berlin" });
+      const berlinNow = new Date(berlinStr);
+      const day = berlinNow.getDay();
+      const diffDays = (day >= 4) ? (day - 4) : (day + 3);
+      const target = new Date(berlinNow);
+      target.setDate(berlinNow.getDate() - diffDays);
+      target.setHours(6, 0, 0, 0);
+      if (berlinNow < target) target.setDate(target.getDate() - 7);
+      const offsetMs = now.getTime() - berlinNow.getTime();
+      return target.getTime() + offsetMs;
+    }
+
+    function shouldAutoSync() {
+      if (!appState.settings.username || !appState.settings.leagueId) return false;
+      if (!appState.lastSyncTimestamp) return true;
+      return appState.lastSyncTimestamp < getLastThursday0600Berlin();
+    }
+
+    // --- SLEEPER API (NUR LESEN / HTTPS) ---
+    async function saveSleeperSettings() {
+      appState.settings.username = document.getElementById("setting-username").value.trim();
+      appState.settings.leagueId = document.getElementById("setting-league-id").value.trim();
+      persistLocalState();
+      await manualSync();
+    }
+
+    async function manualSync() {
+      const statusEl = document.getElementById("sync-status-text");
+      const { username, leagueId } = appState.settings;
+      if (!username || !leagueId) {
+        statusEl.textContent = "Bitte zuerst Sleeper Username und Liga-ID in den Einstellungen hinterlegen.";
+        return;
+      }
+      statusEl.textContent = "Synchronisiere Sleeper-Daten über HTTPS...";
+      try {
+        const [userRes, leagueRes, rostersRes, usersRes, nflStateRes] = await Promise.all([
+          fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`),
+          fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}`),
+          fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}/rosters`),
+          fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}/users`),
+          fetch(`https://api.sleeper.app/v1/state/nfl`)
+        ]);
+        if (!userRes.ok || !leagueRes.ok || !rostersRes.ok) throw new Error("Sleeper-Abfrage fehlgeschlagen.");
+
+        const userData = await userRes.json();
+        const leagueData = await leagueRes.json();
+        const rostersData = await rostersRes.json();
+        const usersData = await usersRes.json();
+        const nflState = nflStateRes.ok ? await nflStateRes.json() : { week: 1, season: 2026 };
+
+        appState.settings.userId = userData.user_id;
+        appState.settings.currentWeek = nflState.week || 1;
+        appState.settings.currentSeason = parseInt(leagueData.season || nflState.season || 2026, 10);
+        appState.rosters = rostersData;
+        appState.users = {};
+        usersData.forEach(u => { appState.users[u.user_id] = u; });
+
+        const needsPlayerMetadataRefresh = Object.keys(appState.players).length === 0 || appState.settings.playerMetadataVersion !== 3;
+        if (needsPlayerMetadataRefresh) {
+          const allPlayersRes = await fetch("https://api.sleeper.app/v1/players/nfl");
+          if (allPlayersRes.ok) {
+            const rawPlayers = await allPlayersRes.json();
+            // Vollständiger Metadaten-Refresh: veraltete Sleeper-/GSIS-Zuordnungen entfernen.
+            appState.players = {};
+            Object.entries(rawPlayers).forEach(([id, p]) => {
+              if (p.active && p.position && POS_SORT_ORDER[p.position]) {
+                appState.players[id] = {
+                  id,
+                  gsis_id: p.gsis_id || null,
+                  team: p.team || null,
+                  name: p.full_name || `${p.first_name || ""} ${p.last_name || ""}`.trim(),
+                  lastName: p.last_name || "",
+                  pos: p.position,
+                  positions: p.fantasy_positions || [p.position],
+                  age: Number.isFinite(Number(p.age)) && p.age !== null ? Number(p.age) : null,
+                  yearsExp: p.years_exp ?? 1,
+                  draftRound: p.draft_round || null,
+                  draftPick: p.draft_pick || null,
+                  injuryOver50LastSeason: false,
+                  perfScore: null,
+                  snapPct: null,
+                  contractScore: null,
+                };
+              }
+            });
+            appState.settings.playerMetadataVersion = 3;
+          } else {
+            throw new Error(`Sleeper-Spielermetadaten nicht abrufbar (HTTP ${allPlayersRes.status}).`);
+          }
+        }
+
+        const [nflPerfResult, snapResult, contractResult] = await Promise.all([
+          loadNflPerformanceData(), loadNflSnapData(), loadNflContractData()
+        ]);
+
+        appState.pickMarket = {};
+        for (let w = 1; w <= 18; w++) {
+          const txRes = await fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}/transactions/${w}`);
+          if (!txRes.ok) continue;
+          const txs = await txRes.json();
+          txs.filter(t => t.type === "trade" && t.status === "complete" && Array.isArray(t.draft_picks) && t.draft_picks.length > 0)
+             .forEach(trade => processCompletedPickTrade(trade));
+        }
+
+        buildLeaguePicksFromStandings();
+        appState.lastSyncTimestamp = Date.now();
+        persistLocalState();
+        renderDashboard();
+        const perfStatus = nflPerfResult.loadedSeasons > 0
+          ? `NFL-Leistung: ${nflPerfResult.matched} Spieler zugeordnet (${nflPerfResult.loadedSeasons}/${nflPerfResult.totalSeasons} Saisons)${nflPerfResult.errors.length ? ` · fehlgeschlagen: ${nflPerfResult.errors.join("; ")}` : ""}`
+          : `NFL-Leistungsdaten derzeit nicht erreichbar${nflPerfResult.errors.length ? ` (${nflPerfResult.errors.join("; ")})` : ""}; vorhandene Werte bleiben erhalten.`;
+        const snapStatus = `Snaps: ${snapResult.matched} Spieler (${snapResult.loadedSeasons}/${snapResult.totalSeasons} Saisons; ST ausgeschlossen)`;
+        const contractStatus = `Verträge: ${contractResult.matched} Spieler zugeordnet`;
+        const dataErrors = [...snapResult.errors, ...contractResult.errors];
+        statusEl.textContent = `Stand: ${new Date(appState.lastSyncTimestamp).toLocaleString("de-DE")} (Woche ${appState.settings.currentWeek}) · ${perfStatus} · ${snapStatus} · ${contractStatus}${dataErrors.length ? ` · Datenhinweise: ${dataErrors.join("; ")}` : ""}`;
+      } catch (err) {
+        console.error("Synchronisierung fehlgeschlagen:", err);
+        statusEl.textContent = `Sync-Fehler: ${err.message || "Unbekannter Fehler"} – zuletzt gespeicherte lokale Daten aktiv.`;
+      }
+    }
+
+    function processCompletedPickTrade(trade) {
+      if (!Array.isArray(trade.roster_ids) || trade.roster_ids.length < 2) return;
+      const r1 = trade.roster_ids[0];
+      const r2 = trade.roster_ids[1];
+      const side1Picks = trade.draft_picks.filter(p => p.owner_id === r1);
+      const side2Picks = trade.draft_picks.filter(p => p.owner_id === r2);
+
+      if (side1Picks.length === 0 && side2Picks.length > 0) {
+        const addsSide2 = Object.keys(trade.adds || {}).filter(pid => trade.adds[pid] === r2);
+        const playerSum = addsSide2.reduce((sum, pid) => sum + (appState.players[pid] ? getBestPlayerEvaluation(appState.players[pid], "balanced").value : 1500), 0);
+        const totalBase = side2Picks.reduce((s, p) => s + (PICK_BASE_VALUES[p.round]?.[5] || 100), 0);
+        side2Picks.forEach(p => {
+          const base = PICK_BASE_VALUES[p.round]?.[5] || 100;
+          const shareVal = totalBase > 0 ? playerSum * (base / totalBase) : playerSum;
+          applyTradeToPickMarket(p.round, 6, shareVal);
+        });
+      } else if (side2Picks.length === 0 && side1Picks.length > 0) {
+        const addsSide1 = Object.keys(trade.adds || {}).filter(pid => trade.adds[pid] === r1);
+        const playerSum = addsSide1.reduce((sum, pid) => sum + (appState.players[pid] ? getBestPlayerEvaluation(appState.players[pid], "balanced").value : 1500), 0);
+        const totalBase = side1Picks.reduce((s, p) => s + (PICK_BASE_VALUES[p.round]?.[5] || 100), 0);
+        side1Picks.forEach(p => {
+          const base = PICK_BASE_VALUES[p.round]?.[5] || 100;
+          const shareVal = totalBase > 0 ? playerSum * (base / totalBase) : playerSum;
+          applyTradeToPickMarket(p.round, 6, shareVal);
+        });
+      }
+    }
+
+    function buildLeaguePicksFromStandings() {
+      const season = appState.settings.currentSeason;
+      appState.leaguePicks = [];
+      for (let yrOffset = 0; yrOffset <= 3; yrOffset++) {
+        for (let r = 1; r <= 7; r++) {
+          for (let s = 1; s <= 12; s++) {
+            appState.leaguePicks.push({
+              id: `PICK_${season + yrOffset}_R${r}_S${s}`,
+              label: `${season + yrOffset} ${r}.${String(s).padStart(2, "0")}`,
+              season: season + yrOffset,
+              round: r,
+              slot: s
+            });
+          }
+        }
+      }
+    }
+
+    // --- DASHBOARD & SPIELERSUCHE ---
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    }
+
+    function renderDashboard() {
+      const strat = document.getElementById("dashboard-strategy").value;
+      const listEl = document.getElementById("dashboard-roster-list");
+      const myRoster = appState.rosters.find(r => r.owner_id === appState.settings.userId);
+      if (!myRoster) {
+        listEl.innerHTML = `<p class="muted">Noch kein Kader geladen. Bitte in den Einstellungen Sleeper Username &amp; Liga-ID eintragen.</p>`;
+        document.getElementById("dashboard-team-value").textContent = "0";
+        return;
+      }
+      const allIds = [...new Set([...(myRoster.players || []), ...(myRoster.taxi || []), ...(myRoster.reserve || [])])];
+      const rosterPlayers = sortPlayersStrict(allIds.map(id => appState.players[id]).filter(Boolean));
+
+      let totalVal = 0;
+      listEl.innerHTML = rosterPlayers.map(p => {
+        const evalRes = getBestPlayerEvaluation(p, strat);
+        totalVal += evalRes.value;
+        const isTaxi = (myRoster.taxi || []).includes(p.id);
+        const isIR = (myRoster.reserve || []).includes(p.id);
+        return `
+          <div class="player-row">
+            <div class="player-meta">
+              <div>
+                <span class="pos-tag">${evalRes.pos}</span>
+                <span class="player-name">${p.name}</span>
+              </div>
+              <div>
+                ${isTaxi ? '<span class="badge info">Taxi</span>' : ""}
+                ${isIR ? '<span class="badge info">IR</span>' : ""}
+                ${p.injuryOver50LastSeason ? '<span class="badge warn">&gt;50% verletzt (Vorsaison)</span>' : ""}
+                ${evalRes.missingFields.length ? `<span class="badge">Fehlend: ${evalRes.missingFields.join(", ")}</span>` : ""}
+              </div>
+              <div class="muted" style="font-size:11px">Aktuelles Team: ${escapeHtml(p.team || "Free Agent / unbekannt")} · Vertrag: ${p.contractYearsRemaining != null ? `${p.contractYearsRemaining} J. Restlaufzeit` : "keine Vertragsdaten"}</div>
+            </div>
+            <div class="player-val">${evalRes.value.toLocaleString("de-DE")}</div>
+          </div>`;
+      }).join("");
+      document.getElementById("dashboard-team-value").textContent = totalVal.toLocaleString("de-DE");
+    }
+
+    function renderSearchResults() {
+      const q = document.getElementById("global-search-input").value.trim().toLowerCase();
+      const strat = document.getElementById("search-strategy").value;
+      const all = Object.values(appState.players);
+      const filtered = q ? all.filter(p => p.name.toLowerCase().includes(q)) : all.slice(0, 60);
+      const sorted = sortPlayersStrict(filtered).slice(0, 80);
+
+      const container = document.getElementById("search-results-list");
+      if (!sorted.length) {
+        container.innerHTML = `<p class="muted">Keine Spieler gefunden. Bitte zuerst Liga synchronisieren.</p>`;
+        return;
+      }
+      container.innerHTML = sorted.map(p => {
+        const evalRes = getBestPlayerEvaluation(p, strat);
+        return `
+          <div class="player-row">
+            <div class="player-meta">
+              <div><span class="pos-tag">${evalRes.pos}</span> <span class="player-name">${p.name}</span></div>
+              <div>
+                ${p.injuryOver50LastSeason ? '<span class="badge warn">&gt;50% verletzt</span>' : ""}
+              </div>
+              <div class="muted" style="font-size:11px">Aktuelles Team: ${escapeHtml(p.team || "Free Agent / unbekannt")} · Vertrag: ${p.contractYearsRemaining != null ? `${p.contractYearsRemaining} J. Restlaufzeit` : "keine Vertragsdaten"}</div>
+            </div>
+            <div class="player-val">${evalRes.value.toLocaleString("de-DE")}</div>
+          </div>`;
+      }).join("");
+    }
+
+    // --- TRADE CALCULATOR & FAIRNESS-SKALA ---
+    async function loadTradePartner() {
+      const partnerName = document.getElementById("partner-username").value.trim();
+      const statusEl = document.getElementById("partner-status");
+      if (!partnerName) return;
+      try {
+        const res = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(partnerName)}`);
+        if (!res.ok) throw new Error();
+        const u = await res.json();
+        appState.settings.partnerUserId = u.user_id;
+        statusEl.textContent = `Tradepartner aktiv: ${u.display_name || partnerName}`;
+      } catch {
+        statusEl.textContent = "Sleeper Username nicht gefunden.";
+      }
+    }
+
+    function openAssetPicker(side) {
+      const sheet = document.getElementById("modal-sheet");
+      const playerList = sortPlayersStrict(Object.values(appState.players)).slice(0, 50);
+      const pickList = (appState.leaguePicks.length ? appState.leaguePicks : []).slice(0, 28);
+
+      sheet.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3>Asset hinzufügen (${side === "left" ? "Deine Seite" : "Gegenseite"})</h3>
+          <button class="btn secondary" onclick="document.getElementById('modal-backdrop').style.display='none'">Schließen</button>
+        </div>
+        <input type="text" placeholder="Filter nach Name oder Pick..." oninput="filterModalAssets(this.value, '${side}')" style="margin-bottom:10px;" />
+        <div id="modal-asset-list">
+          ${renderModalItems(playerList, pickList, side)}
+        </div>
+      `;
+      document.getElementById("modal-backdrop").style.display = "flex";
+    }
+
+    function renderModalItems(players, picks, side) {
+      const pickHtml = picks.map(pk => `
+        <div class="player-row" style="cursor:pointer;" onclick="addAssetToTrade('${side}', 'pick', '${pk.id}')">
+          <span><strong>PICK</strong> ${pk.label}</span>
+          <span class="player-val">${evaluatePick(pk).toLocaleString("de-DE")}</span>
+        </div>`).join("");
+      const playerHtml = players.map(pl => `
+        <div class="player-row" style="cursor:pointer;" onclick="addAssetToTrade('${side}', 'player', '${pl.id}')">
+          <span><span class="pos-tag">${pl.pos}</span> ${pl.name}</span>
+          <span class="player-val">${getBestPlayerEvaluation(pl, "balanced").value.toLocaleString("de-DE")}</span>
+        </div>`).join("");
+      return pickHtml + playerHtml;
+    }
+
+    function filterModalAssets(q, side) {
+      const term = q.trim().toLowerCase();
+      const players = sortPlayersStrict(Object.values(appState.players).filter(p => p.name.toLowerCase().includes(term))).slice(0, 40);
+      const picks = appState.leaguePicks.filter(pk => pk.label.toLowerCase().includes(term)).slice(0, 25);
+      document.getElementById("modal-asset-list").innerHTML = renderModalItems(players, picks, side);
+    }
+
+    function closeModal(e) {
+      if (e.target.id === "modal-backdrop") e.target.style.display = "none";
+    }
+
+    function addAssetToTrade(side, type, id) {
+      const target = side === "left" ? appState.tradeLeft : appState.tradeRight;
+      if (!target.some(item => item.id === id)) target.push({ type, id });
+      document.getElementById("modal-backdrop").style.display = "none";
+      recalculateTrade();
+    }
+
+    function removeTradeAsset(side, index) {
+      if (side === "left") appState.tradeLeft.splice(index, 1);
+      else appState.tradeRight.splice(index, 1);
+      recalculateTrade();
+    }
+
+    function confirmTradeReset() {
+      if (confirm("Möchtest du wirklich alle ausgewählten Spieler und Picks im Trade Calculator zurücksetzen?")) {
+        appState.tradeLeft = [];
+        appState.tradeRight = [];
+        recalculateTrade();
+      }
+    }
+
+    function recalculateTrade() {
+      const stratLeft = document.getElementById("strategy-left").value;
+      const stratRight = document.getElementById("strategy-right").value;
+
+      const calcSide = (items, strat, containerId) => {
+        let sum = 0;
+        document.getElementById(containerId).innerHTML = items.map((item, idx) => {
+          let label = "", val = 0;
+          if (item.type === "player" && appState.players[item.id]) {
+            const p = appState.players[item.id];
+            label = `${p.pos} ${p.name}`;
+            val = getBestPlayerEvaluation(p, strat).value;
+          } else if (item.type === "pick") {
+            const pk = appState.leaguePicks.find(x => x.id === item.id);
+            if (pk) { label = `Pick ${pk.label}`; val = evaluatePick(pk); }
+          }
+          sum += val;
+          return `<div style="display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid var(--border);">
+            <span>${label} (${val.toLocaleString("de-DE")})</span>
+            <button style="border:none; background:none; color:#b91c1c; font-weight:700; cursor:pointer;" onclick="removeTradeAsset('${containerId === "assets-left" ? "left" : "right"}', ${idx})">&times;</button>
+          </div>`;
+        }).join("");
+        return sum;
+      };
+
+      const totalLeft = calcSide(appState.tradeLeft, stratLeft, "assets-left");
+      const totalRight = calcSide(appState.tradeRight, stratRight, "assets-right");
+      document.getElementById("total-left").textContent = totalLeft.toLocaleString("de-DE");
+      document.getElementById("total-right").textContent = totalRight.toLocaleString("de-DE");
+
+      const pctDiff = totalLeft > 0 ? Math.round((Math.abs(totalRight - totalLeft) / totalLeft) * 100) : 0;
+      const banner = document.getElementById("fairness-box");
+      let label = "Grün – Fair", color = "var(--fair-green)";
+      if (pctDiff >= 36) { label = "Dunkelrot – FRECH"; color = "var(--fair-darkred)"; }
+      else if (pctDiff >= 26) { label = "Rot – Unausgewogen"; color = "var(--fair-red)"; }
+      else if (pctDiff >= 16) { label = "Orange – Vorteil"; color = "var(--fair-orange)"; }
+      else if (pctDiff >= 11) { label = "Gelb – Leichter Vorteil"; color = "var(--fair-yellow)"; }
+
+      banner.style.color = color;
+      banner.style.borderColor = color;
+      banner.textContent = `${pctDiff} % Unterschied – ${label}`;
+    }
+
+    // --- LOKALE SPEICHERUNG & AES-GCM BACKUP ---
+    function persistLocalState() {
+      const safeCopy = {
+        settings: { username: appState.settings.username, leagueId: appState.settings.leagueId, userId: appState.settings.userId, currentWeek: appState.settings.currentWeek, currentSeason: appState.settings.currentSeason, playerMetadataVersion: appState.settings.playerMetadataVersion },
+        lastSyncTimestamp: appState.lastSyncTimestamp,
+        players: appState.players,
+        rosters: appState.rosters,
+        users: appState.users,
+        pickMarket: appState.pickMarket,
+        leaguePicks: appState.leaguePicks
+      };
+      localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(safeCopy));
+    }
+
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function exportEncryptedBackup() {
+      const pw = document.getElementById("backup-password").value;
+      const status = document.getElementById("backup-status");
+      if (!pw || pw.length < 6) { status.textContent = "Bitte ein Passwort mit mindestens 6 Zeichen eingeben."; return; }
+      const payload = JSON.stringify({
+        schemaVersion: "2.0",
+        exportedAt: new Date().toISOString(),
+        settings: { username: appState.settings.username, leagueId: appState.settings.leagueId, currentWeek: appState.settings.currentWeek, currentSeason: appState.settings.currentSeason },
+        players: appState.players,
+        pickMarket: appState.pickMarket,
+        lastSyncTimestamp: appState.lastSyncTimestamp
+      });
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(pw, salt);
+      const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(payload));
+
+      const bundle = JSON.stringify({
+        app: "DynastyTradeCalculator",
+        enc: "AES-GCM",
+        salt: Array.from(salt),
+        iv: Array.from(iv),
+        data: Array.from(new Uint8Array(cipher))
+      });
+      const blob = new Blob([bundle], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `dynasty_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      status.textContent = "Verschlüsseltes Backup erfolgreich erstellt.";
+    }
+
+    async function importEncryptedBackup(event) {
+      const file = event.target.files[0];
+      const pw = document.getElementById("backup-password").value;
+      const status = document.getElementById("backup-status");
+      if (!file || !pw) { status.textContent = "Bitte Datei und Backup-Passwort angeben."; return; }
+      try {
+        const raw = JSON.parse(await file.text());
+        if (raw.app !== "DynastyTradeCalculator" || raw.enc !== "AES-GCM" || !Array.isArray(raw.data)) {
+          throw new Error("Ungültiges Backup-Format.");
+        }
+        const key = await deriveKey(pw, new Uint8Array(raw.salt));
+        const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(raw.iv) }, key, new Uint8Array(raw.data));
+        const parsed = JSON.parse(new TextDecoder().decode(plainBuf));
+
+        if (parsed.schemaVersion !== "2.0" || typeof parsed.settings !== "object" || typeof parsed.players !== "object") {
+          throw new Error("Schema-Validierung fehlgeschlagen.");
+        }
+        appState.settings = { ...appState.settings, ...parsed.settings };
+        appState.players = parsed.players;
+        appState.pickMarket = parsed.pickMarket || {};
+        appState.lastSyncTimestamp = parsed.lastSyncTimestamp || null;
+        buildLeaguePicksFromStandings();
+        persistLocalState();
+        renderDashboard();
+        status.textContent = "Backup erfolgreich validiert und wiederhergestellt.";
+      } catch (e) {
+        status.textContent = "Import fehlgeschlagen: Falsches Passwort oder beschädigte Datei.";
+      }
+    }
+
+    // --- APP-START ---
+    window.addEventListener("DOMContentLoaded", async () => {
+      const saved = localStorage.getItem(APP_STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          appState = { ...appState, ...parsed };
+          document.getElementById("setting-username").value = appState.settings.username || "";
+          document.getElementById("setting-league-id").value = appState.settings.leagueId || "";
+        } catch {}
+      }
+      if (!appState.leaguePicks.length) buildLeaguePicksFromStandings();
+      renderDashboard();
+      if (shouldAutoSync()) await manualSync();
+    });
+  </script>
+</body>
+</html>
