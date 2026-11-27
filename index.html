@@ -269,7 +269,10 @@
         <label class="muted">Liga-ID (12 Teams)</label>
         <input type="text" id="setting-league-id" placeholder="Sleeper Liga-ID" style="margin:6px 0 10px;" />
         <button class="btn" onclick="saveSleeperSettings()">Speichern &amp; Synchronisieren</button>
-        <button class="btn" onclick="refreshPlayerDatabase()">Spielerdatenbank aktualisieren</button>
+        <div style="display:flex; align-items:center; gap:12px;">
+  <button class="btn" onclick="refreshPlayerDatabase()">Spielerdatenbank aktualisieren</button>
+  <span id="player-db-status-light" title="Keine Aktualisierung durchgeführt" style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#ffffff; border:1px solid #888; flex-shrink:0;"></span>
+</div>
       </div>
 
       <div class="card">
