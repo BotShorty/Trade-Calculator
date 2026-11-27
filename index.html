@@ -927,6 +927,17 @@ const rosterMissing = 0;
         gsisOwners.get(id).push(p);
       });
       const duplicateGsis = [...gsisOwners.values()].filter(group => group.length > 1);
+
+const duplicateGsisDetails = duplicateGsis.map(group => ({
+  gsisId: String(group[0].gsis_id || "").trim(),
+  players: group.map(p => ({
+    name: p.name || "Unbekannter Spieler",
+    sleeperId: String(p.id || ""),
+    internalId: p.internal_id || "Keine interne ID",
+    position: p.pos || "Unbekannt",
+    team: p.team || "Unbekannt"
+  }))
+}));
       const missingGsisRoster = rosterPlayers.filter(r => !r.gsisId).length;
       const eligible = {
         perf:rosterPlayers.filter(r=>nflPositionGroup(r.position)),
