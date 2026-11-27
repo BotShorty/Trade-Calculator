@@ -1433,9 +1433,6 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
         appState.users = {};
         usersData.forEach(u => { appState.users[u.user_id] = u; });
 
-        const needsPlayerMetadataRefresh =
-        Object.keys(appState.players).length === 0 
-
 
 
         const [nflPerfResult, snapResult, contractResult, rosterResult] = await Promise.all([
