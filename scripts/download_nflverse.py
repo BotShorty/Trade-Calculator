@@ -378,6 +378,8 @@ def build_player_id_map():
             1 for p in players.values() if p.get("in_sleeper")
         ),
         "registry_count": len(players),
+                "reserved_sleeper_ids": reserved_sleeper_ids,
+        "reserved_internal_ids": sorted(reserved_internal_ids),
         "unresolved_count": len(unresolved),
         "players": players,
         "unresolved": unresolved
