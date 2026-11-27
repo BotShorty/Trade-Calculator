@@ -186,22 +186,50 @@ def build_player_id_map():
         for number, record in enumerate(old_records, start=1):
             record["internal_id"] = f"BS{number:04X}"
 
-    # Bereits vergebene IDs erfassen.
-    used_numbers = set()
+    # Alle jemals vergebenen BS-IDs dauerhaft reservieren.
+    reserved_sleeper_ids = dict(previous.get("reserved_sleeper_ids", {}))
+    reserved_internal_ids = set(previous.get("reserved_internal_ids", []))
 
     for record in old_records:
-        internal_id = record.get("internal_id", "")
+        sleeper_id = clean(record.get("sleeper_id"))
+        internal_id = record.get("internal_id")
 
-        if (
-            isinstance(internal_id, str)
-            and len(internal_id) == 6
+        if sleeper_id and internal_id:
+            previous_id = reserved_sleeper_ids.get(sleeper_id)
+
+            if previous_id and previous_id != internal_id:
+                raise RuntimeError(
+                    f"Widersprüchliche BS-ID für Sleeper-ID {sleeper_id}"
+                )
+
+            reserved_sleeper_ids[sleeper_id] = internal_id
+
+        if internal_id:
+            reserved_internal_ids.add(internal_id)
+
+    # Eindeutigkeit aller reservierten IDs prüfen.
+    if len(reserved_internal_ids) != len(set(reserved_internal_ids)):
+        raise RuntimeError("Doppelte reservierte BS-IDs.")
+
+    id_owners = {}
+
+    for sleeper_id, internal_id in reserved_sleeper_ids.items():
+        if not isinstance(internal_id, str) or not (
+            len(internal_id) == 6
             and internal_id.startswith("BS")
             and all(c in "0123456789ABCDEF" for c in internal_id[2:])
         ):
-            used_numbers.add(int(internal_id[2:], 16))
+            raise RuntimeError(f"Ungültige reservierte BS-ID: {internal_id}")
 
-    if len(used_numbers) != len(old_records):
-        raise RuntimeError("Ungültige oder doppelte bestehende BS-IDs.")
+        if internal_id in id_owners and id_owners[internal_id] != sleeper_id:
+            raise RuntimeError(f"BS-ID mehrfach vergeben: {internal_id}")
+
+        id_owners[internal_id] = sleeper_id
+
+    used_numbers = {
+        int(internal_id[2:], 16)
+        for internal_id in reserved_internal_ids
+    }
 
     next_number = max(used_numbers, default=0) + 1
 
@@ -213,6 +241,7 @@ def build_player_id_map():
 
         result = f"BS{next_number:04X}"
         next_number += 1
+        reserved_internal_ids.add(result)
         return result
 
     # Alte Datensätze anhand der Sleeper-ID wiederfinden.
