@@ -1550,7 +1550,7 @@ if (needsPlayerMetadataRefresh) {
 
     function openAssetPicker(side) {
       const sheet = document.getElementById("modal-sheet");
-      const playerList = sortPlayersStrict(Object.values(appState.players)).slice(0, 50);
+      const playerList = sortPlayersStrict(Object.values(appState.players).filter(p => POS_SORT_ORDER[getPositionGroup(p.pos)])).slice(0, 50);
       const pickList = (appState.leaguePicks.length ? appState.leaguePicks : []).slice(0, 28);
 
       sheet.innerHTML = `
