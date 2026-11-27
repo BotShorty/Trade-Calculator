@@ -1377,6 +1377,12 @@ if (needsPlayerMetadataRefresh) {
   appState.settings.playerMetadataVersion = 4;
 }
 
+        const [nflPerfResult, snapResult, contractResult, rosterResult] = await Promise.all([
+  loadNflPerformanceData(),
+  loadNflSnapData(),
+  loadNflContractData(),
+  loadNflRosterEligibility()
+]);
         appState.dataQuality = buildDataQualityReport(nflPerfResult, snapResult, contractResult, rosterResult);
         renderDataQualityReport(appState.dataQuality);
 
