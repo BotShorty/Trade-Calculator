@@ -1582,7 +1582,7 @@ if (needsPlayerMetadataRefresh) {
 
     function filterModalAssets(q, side) {
       const term = q.trim().toLowerCase();
-      const players = sortPlayersStrict(Object.values(appState.players).filter(p => p.name.toLowerCase().includes(term))).slice(0, 40);
+      const players = sortPlayersStrict(Object.values(appState.players).filter(p => POS_SORT_ORDER[getPositionGroup(p.pos)] && p.name.toLowerCase().includes(term))).slice(0, 40);
       const picks = appState.leaguePicks.filter(pk => pk.label.toLowerCase().includes(term)).slice(0, 25);
       document.getElementById("modal-asset-list").innerHTML = renderModalItems(players, picks, side);
     }
