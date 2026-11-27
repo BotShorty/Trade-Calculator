@@ -1507,7 +1507,7 @@ if (needsPlayerMetadataRefresh) {
     function renderSearchResults() {
       const q = document.getElementById("global-search-input").value.trim().toLowerCase();
       const strat = document.getElementById("search-strategy").value;
-      const all = Object.values(appState.players);
+      const all = Object.values(appState.players).filter(p => POS_SORT_ORDER[getPositionGroup(p.pos)]);
       const filtered = q ? all.filter(p => p.name.toLowerCase().includes(q)) : all.slice(0, 60);
       const sorted = sortPlayersStrict(filtered).slice(0, 80);
 
