@@ -166,122 +166,57 @@ def build_player_id_map():
         record["internal_id"] = record.get("internal_id") or old_key
         old_records.append(record)
 
-    # Find the highest already assigned BS number.
+  
+    # Einmalige Migration auf BS + 4-stellige Hex-ID.
+    migrate_ids = previous.get("id_format") != "BS0001-BSFFFF"
+
+    if migrate_ids:
+        print("Migriere bestehende Spieler-IDs auf Hexadezimalformat...")
+
+        old_records.sort(key=lambda r: str(r.get("sleeper_id") or ""))
+
+        if len(old_records) > 65535:
+            raise RuntimeError("Mehr als 65.535 Spieler-IDs vorhanden.")
+
+        for number, record in enumerate(old_records, start=1):
+            record["internal_id"] = f"BS{number:04X}"
+
+    # Bereits vergebene IDs erfassen.
     used_numbers = set()
+
     for record in old_records:
         internal_id = record.get("internal_id", "")
-        if internal_id.startswith("BS") and internal_id[2:].isdigit():
-            used_numbers.add(int(internal_id[2:]))
+
+        if (
+            len(internal_id) == 6
+            and internal_id.startswith("BS")
+            and all(c in "0123456789ABCDEF" for c in internal_id[2:])
+        ):
+            used_numbers.add(int(internal_id[2:], 16))
 
     next_number = max(used_numbers, default=0) + 1
 
     def new_internal_id():
         nonlocal next_number
-        if next_number > 9999:
-            raise RuntimeError("All BS IDs from BS0001 to BS9999 are used.")
-        result = f"BS{next_number:04d}"
+
+        if next_number > 0xFFFF:
+            raise RuntimeError("Alle verfügbaren BS-Hex-IDs sind vergeben.")
+
+        result = f"BS{next_number:04X}"
         next_number += 1
         return result
 
-    # Keep existing BS IDs. Older SLP IDs are migrated to BS IDs once.
-    old_records.sort(key=lambda r: str(r.get("sleeper_id") or ""))
+    # Ungültige oder alte IDs migrieren.
     for record in old_records:
         internal_id = record.get("internal_id", "")
-        if not (internal_id.startswith("BS") and internal_id[2:].isdigit()):
+
+        if not (
+            len(internal_id) == 6
+            and internal_id.startswith("BS")
+            and all(c in "0123456789ABCDEF" for c in internal_id[2:])
+        ):
             record["internal_id"] = new_internal_id()
 
-    old_by_sleeper = {}
-    old_by_gsis = defaultdict(list)
-
-    for record in old_records:
-        sleeper_id = clean(record.get("sleeper_id"))
-        gsis = clean(record.get("gsis_id"))
-
-        if sleeper_id:
-            old_by_sleeper[sleeper_id] = record
-        if gsis:
-            old_by_gsis[gsis].append(record)
-
-    # Build NFLverse GSIS index.
-    nflverse_by_gsis = defaultdict(set)
-
-    for row in nflverse_rows:
-        gsis = clean(row.get("gsis_id"))
-        if gsis:
-            nflverse_by_gsis[gsis].add((
-                clean(row.get("otc_id")),
-                clean(row.get("pfr_id"))
-            ))
-
-    otc_to_gsis = defaultdict(set)
-    pfr_to_gsis = defaultdict(set)
-
-    for gsis, entries in nflverse_by_gsis.items():
-        for otc_id, pfr_id in entries:
-            if otc_id:
-                otc_to_gsis[otc_id].add(gsis)
-            if pfr_id:
-                pfr_to_gsis[pfr_id].add(gsis)
-
-    # Detect duplicate GSIS IDs in Sleeper.
-    sleeper_gsis_counts = defaultdict(int)
-
-    for player in raw_players.values():
-        position = clean(player.get("position"))
-        gsis = clean(player.get("gsis_id"))
-        if position in SUPPORTED_POSITIONS and gsis:
-            sleeper_gsis_counts[gsis] += 1
-
-    players = {}
-    unresolved = []
-    assigned_this_run = set()
-
-    # Keep old records, including players no longer listed by Sleeper.
-    for record in old_records:
-        internal_id = record["internal_id"]
-        record["in_sleeper"] = False
-        players[internal_id] = record
-
-    # Process the current Sleeper player universe.
-    for sleeper_id, player in raw_players.items():
-        position = clean(player.get("position"))
-
-        if position not in SUPPORTED_POSITIONS:
-            continue
-
-        sleeper_id = str(sleeper_id)
-        gsis = clean(player.get("gsis_id"))
-
-        # First choice: exact Sleeper ID.
-        previous_record = old_by_sleeper.get(sleeper_id)
-
-        # Second choice: carry over an ID only if GSIS is unique
-        # in both the old registry and current Sleeper data.
-        if (
-            previous_record is None
-            and gsis
-            and sleeper_gsis_counts[gsis] == 1
-            and len(old_by_gsis.get(gsis, [])) == 1
-        ):
-            previous_record = old_by_gsis[gsis][0]
-
-        if previous_record:
-            internal_id = previous_record["internal_id"]
-        else:
-            internal_id = new_internal_id()
-
-        if internal_id in assigned_this_run:
-            unresolved.append({
-                "sleeper_id": sleeper_id,
-                "gsis_id": gsis,
-                "reason": "Internal ID would be assigned more than once"
-            })
-            internal_id = new_internal_id()
-
-        assigned_this_run.add(internal_id)
-
-        record = {
-            "internal_id": internal_id,
             "sleeper_id": sleeper_id,
             "gsis_id": gsis,
             "otc_id": None,
