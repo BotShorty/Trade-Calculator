@@ -737,69 +737,178 @@
 
     function clampScore(v) { return Math.max(0, Math.min(100, v)); }
 
+    
     async function loadNflContractData() {
       const errors = [];
       Object.values(appState.players).forEach(pl => {
         pl.contractScore = null;
         pl.contractYearsRemaining = null;
       });
+
       try {
+        // 1. NFL-Spielerdaten laden: OTC-ID mit GSIS-ID verbinden.
+        const playersRes = await fetch(NFLVERSE_PLAYERS_URL, {cache:"no-cache"});
+        if (!playersRes.ok) throw new Error(`Spieler-ID-Datei HTTP ${playersRes.status}`);
+
+        const playerRows = parseCsv(await playersRes.text());
+        if (!playerRows.length || !("otc_id" in playerRows[0]) || !("gsis_id" in playerRows[0])) {
+          throw new Error("Spieler-ID-CSV enthält nicht otc_id und gsis_id");
+        }
+
+        const otcToGsis = new Map();
+        const ambiguousOtc = new Set();
+
+        playerRows.forEach(r => {
+          const otc = String(r.otc_id || "").trim();
+          const gsis = String(r.gsis_id || "").trim();
+          if (!otc || !gsis) return;
+
+          if (otcToGsis.has(otc) && otcToGsis.get(otc) !== gsis) {
+            ambiguousOtc.add(otc);
+          } else {
+            otcToGsis.set(otc, gsis);
+          }
+        });
+
+        ambiguousOtc.forEach(id => otcToGsis.delete(id));
+
+        // 2. Vertragsdaten laden.
         const res = await fetch(NFLVERSE_CONTRACTS_URL, {cache:"no-cache"});
         if (!res.ok) throw new Error(`Vertrags-CSV HTTP ${res.status}`);
+
         const rows = parseCsv(await res.text());
-        const required = ["player","position","is_active","year_signed","years","gsis_id"];
+        const required = ["player","position","is_active","year_signed","years","otc_id"];
         const headers = rows.length ? Object.keys(rows[0]) : [];
-        if (!required.every(h => headers.includes(h))) throw new Error("Vertrags-CSV-Format unerwartet (erwartet player/position/is_active/year_signed/years/gsis_id)");
+
+        if (!required.every(h => headers.includes(h))) {
+          throw new Error("Vertrags-CSV-Format unerwartet (erwartet player/position/is_active/year_signed/years/otc_id)");
+        }
+
         const currentYear = new Date().getFullYear();
         const contractsByGsis = new Map();
-        let activeContractRows = 0, invalidContractRows = 0, unsupportedPositionRows = 0, missingGsisRows = 0;
+
+        let activeContractRows = 0;
+        let invalidContractRows = 0;
+        let unsupportedPositionRows = 0;
+        let missingGsisRows = 0;
 
         rows.forEach(r => {
           if (!["true","1"].includes(String(r.is_active).trim().toLowerCase())) return;
           activeContractRows++;
-          const gsisId = String(r.gsis_id || "").trim();
+
+          const otc = String(r.otc_id || "").trim();
+          const gsisId = otcToGsis.get(otc);
           const position = contractPositionGroup(r.position);
-          if (!position) { unsupportedPositionRows++; return; }
-          const yearSigned = Number(r.year_signed), years = Number(r.years);
-          if (!gsisId) { missingGsisRows++; return; }
-          if (!Number.isInteger(yearSigned) || !Number.isFinite(years) || years <= 0 || years > 20 || yearSigned < 1990 || yearSigned > currentYear) { invalidContractRows++; return; }
+
+          if (!position) {
+            unsupportedPositionRows++;
+            return;
+          }
+
+          const yearSigned = Number(r.year_signed);
+          const years = Number(r.years);
+
+          if (!gsisId) {
+            missingGsisRows++;
+            return;
+          }
+
+          if (!Number.isInteger(yearSigned) || !Number.isFinite(years) ||
+              years <= 0 || years > 20 || yearSigned < 1990 || yearSigned > currentYear) {
+            invalidContractRows++;
+            return;
+          }
+
           const contract = {gsisId, position, yearSigned, years};
-          if (!contractsByGsis.has(gsisId)) contractsByGsis.set(gsisId,[]);
+
+          if (!contractsByGsis.has(gsisId)) contractsByGsis.set(gsisId, []);
           contractsByGsis.get(gsisId).push(contract);
         });
 
+        // 3. Sleeper-Spieler über GSIS-ID zuordnen.
         const playersByGsis = new Map();
+
         Object.values(appState.players).forEach(player => {
           const id = String(player.gsis_id || "").trim();
           if (!id) return;
-          if (!playersByGsis.has(id)) playersByGsis.set(id,[]);
+
+          if (!playersByGsis.has(id)) playersByGsis.set(id, []);
           playersByGsis.get(id).push(player);
         });
 
-        let matched = 0, ambiguous = 0, unmatchedEligible = 0;
-        contractsByGsis.forEach((all,gsisId) => {
+        let matched = 0;
+        let ambiguous = 0;
+        let unmatchedEligible = 0;
+
+        contractsByGsis.forEach((all, gsisId) => {
           const players = playersByGsis.get(gsisId) || [];
-          if (!players.length) { unmatchedEligible++; return; }
-          if (players.length !== 1) { ambiguous++; return; }
-          const newestYear = Math.max(...all.map(c=>c.yearSigned));
-          const newest = all.filter(c=>c.yearSigned===newestYear);
-          const signatures = new Set(newest.map(c=>`${c.years}|${c.position}`));
-          if (signatures.size !== 1) { ambiguous++; return; }
-          const c = newest[0], player = players[0];
-          if (contractPositionGroup(player.pos) && contractPositionGroup(player.pos) !== c.position) { ambiguous++; return; }
-          // Verlängerung 2026 über 4 Jahre => Vertragsende 2030, Restlaufzeit 4 Jahre.
+
+          if (!players.length) {
+            unmatchedEligible++;
+            return;
+          }
+
+          if (players.length !== 1) {
+            ambiguous++;
+            return;
+          }
+
+          const newestYear = Math.max(...all.map(c => c.yearSigned));
+          const newest = all.filter(c => c.yearSigned === newestYear);
+          const signatures = new Set(newest.map(c => `${c.years}|${c.position}`));
+
+          if (signatures.size !== 1) {
+            ambiguous++;
+            return;
+          }
+
+          const c = newest[0];
+          const player = players[0];
+
+          if (contractPositionGroup(player.pos) &&
+              contractPositionGroup(player.pos) !== c.position) {
+            ambiguous++;
+            return;
+          }
+
+          // Vertragsende = Abschlussjahr + Laufzeit.
           const remaining = Math.max(0, (c.yearSigned + c.years) - currentYear);
+
           player.contractYearsRemaining = remaining;
           player.contractScore = clampScore((remaining / 5) * 100);
           player.contractUpdatedAt = Date.now();
+
           matched++;
         });
-        return {matched,totalContracts:matched,ambiguous,activeContractRows,invalidContractRows,unsupportedPositionRows,missingGsisRows,unmatchedEligible,errors};
+
+        return {
+          matched,
+          totalContracts: matched,
+          ambiguous: ambiguous + ambiguousOtc.size,
+          activeContractRows,
+          invalidContractRows,
+          unsupportedPositionRows,
+          missingGsisRows,
+          unmatchedEligible,
+          errors
+        };
+
       } catch(e) {
         errors.push(e.message);
-        return {matched:0,totalContracts:0,ambiguous:0,activeContractRows:0,invalidContractRows:0,unsupportedPositionRows:0,missingGsisRows:0,unmatchedEligible:0,errors};
+        return {
+          matched:0,
+          totalContracts:0,
+          ambiguous:0,
+          activeContractRows:0,
+          invalidContractRows:0,
+          unsupportedPositionRows:0,
+          missingGsisRows:0,
+          unmatchedEligible:0,
+          errors
+        };
       }
     }
+
 
     // Automatische Datenqualitätskontrolle. Fehlerhafte/mehrdeutige Zuordnungen
     // werden nicht bewertet; fehlende Daten bleiben sichtbar statt als Null zu gelten.
