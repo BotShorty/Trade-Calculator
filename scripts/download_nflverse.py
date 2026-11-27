@@ -207,9 +207,17 @@ def build_player_id_map():
         if internal_id:
             reserved_internal_ids.add(internal_id)
 
-    # Eindeutigkeit aller reservierten IDs prüfen.
-    if len(reserved_internal_ids) != len(set(reserved_internal_ids)):
-        raise RuntimeError("Doppelte reservierte BS-IDs.")
+   # Doppelte BS-IDs in den bisherigen Spielerdatensätzen erkennen.
+old_internal_ids = [
+    record.get("internal_id")
+    for record in old_records
+    if record.get("internal_id")
+]
+
+if len(old_internal_ids) != len(set(old_internal_ids)):
+    raise RuntimeError(
+        "Doppelte BS-IDs in bisherigen Spielerdatensätzen."
+    )
 
     id_owners = {}
 
