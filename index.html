@@ -1345,7 +1345,7 @@ if (needsPlayerMetadataRefresh) {
   const refreshedPlayers = {};
 
   Object.entries(rawPlayers).forEach(([id, p]) => {
-    if (p.active && p.position && POS_SORT_ORDER[p.position]) {
+      if (p && typeof p === "object") {
       const internalId = idBySleeper.get(String(id));
 
       if (!internalId) {
