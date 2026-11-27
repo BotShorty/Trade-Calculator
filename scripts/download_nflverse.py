@@ -147,8 +147,7 @@ def load_nflverse_players():
 
 
 def build_player_id_map():
-    print("Downloading Sleeper NFL player database...")
-    raw_players = json.loads(request_bytes(SLEEPER_URL))
+    raw_players = load_sleeper_players()
 
     nflverse_rows = load_nflverse_players()
 
