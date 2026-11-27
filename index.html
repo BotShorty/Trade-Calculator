@@ -1808,8 +1808,8 @@ if (needsPlayerMetadataRefresh) {
     // --- LOKALE SPEICHERUNG & AES-GCM BACKUP ---
     function persistLocalState() {
       const safeCopy = {
-        settings: { username: appState.settings.username, leagueId: appState.settings.leagueId, userId: appState.settings.userId, currentWeek: appState.settings.currentWeek, currentSeason: appState.settings.currentSeason, playerMetadataVersion: appState.settings.playerMetadataVersion },
-        lastSyncTimestamp: appState.lastSyncTimestamp,
+       settings: { username: appState.settings.username, leagueId: appState.settings.leagueId, userId: appState.settings.userId, currentWeek: appState.settings.currentWeek, currentSeason: appState.settings.currentSeason },
+        : appState.lastSyncTimestamp,
         players: appState.players,
         rosters: appState.rosters,
         users: appState.users,
