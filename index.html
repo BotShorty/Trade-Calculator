@@ -1284,43 +1284,99 @@
         appState.users = {};
         usersData.forEach(u => { appState.users[u.user_id] = u; });
 
-        const needsPlayerMetadataRefresh = Object.keys(appState.players).length === 0 || appState.settings.playerMetadataVersion !== 3;
-        if (needsPlayerMetadataRefresh) {
-          const allPlayersRes = await fetch("https://api.sleeper.app/v1/players/nfl");
-          if (allPlayersRes.ok) {
-            const rawPlayers = await allPlayersRes.json();
-            // Vollständiger Metadaten-Refresh: veraltete Sleeper-/GSIS-Zuordnungen entfernen.
-            appState.players = {};
-            Object.entries(rawPlayers).forEach(([id, p]) => {
-              if (p.active && p.position && POS_SORT_ORDER[p.position]) {
-                appState.players[id] = {
-                  id,
-                  gsis_id: p.gsis_id || null,
-                  team: p.team || null,
-                  name: p.full_name || `${p.first_name || ""} ${p.last_name || ""}`.trim(),
-                  lastName: p.last_name || "",
-                  pos: p.position,
-                  positions: p.fantasy_positions || [p.position],
-                  age: Number.isFinite(Number(p.age)) && p.age !== null ? Number(p.age) : null,
-                  yearsExp: p.years_exp ?? 1,
-                  draftRound: p.draft_round || null,
-                  draftPick: p.draft_pick || null,
-                  injuryOver50LastSeason: false,
-                  perfScore: null,
-                  snapPct: null,
-                  contractScore: null,
-                };
-              }
-            });
-            appState.settings.playerMetadataVersion = 3;
-          } else {
-            throw new Error(`Sleeper-Spielermetadaten nicht abrufbar (HTTP ${allPlayersRes.status}).`);
-          }
-        }
+        const needsPlayerMetadataRefresh =
+        Object.keys(appState.players).length === 0 ||
+        appState.settings.playerMetadataVersion !== 4;
 
-        const [nflPerfResult, snapResult, contractResult, rosterResult] = await Promise.all([
-          loadNflPerformanceData(), loadNflSnapData(), loadNflContractData(), loadNflRosterEligibility()
-        ]);
+if (needsPlayerMetadataRefresh) {
+  const mapRes = await fetch("./player_id_map.json", { cache: "no-store" });
+
+  if (!mapRes.ok) {
+    throw new Error(`BS-ID-Zuordnung nicht abrufbar (HTTP ${mapRes.status}).`);
+  }
+
+  const mapData = await mapRes.json();
+
+  if (
+    !mapData ||
+    !mapData.players ||
+    typeof mapData.players !== "object" ||
+    mapData.id_format !== "BS0001-BSFFFF"
+  ) {
+    throw new Error("BS-ID-Zuordnung hat ein ungültiges Format.");
+  }
+
+  const idBySleeper = new Map();
+  const usedInternalIds = new Set();
+
+  Object.entries(mapData.players).forEach(([key, record]) => {
+    if (!record || record.in_sleeper !== true) return;
+
+    const internalId = record.internal_id;
+    const sleeperId = String(record.sleeper_id || "");
+
+    if (
+      key !== internalId ||
+      !/^BS[0-9A-F]{4}$/.test(internalId || "") ||
+      !sleeperId
+    ) {
+      throw new Error("Ungültiger Eintrag in der BS-ID-Zuordnung.");
+    }
+
+    if (usedInternalIds.has(internalId) || idBySleeper.has(sleeperId)) {
+      throw new Error("Doppelte Spieler-ID in der BS-ID-Zuordnung.");
+    }
+
+    usedInternalIds.add(internalId);
+    idBySleeper.set(sleeperId, internalId);
+  });
+
+  if (idBySleeper.size !== Number(mapData.player_count)) {
+    throw new Error("Spieleranzahl der BS-ID-Zuordnung stimmt nicht überein.");
+  }
+
+  const allPlayersRes = await fetch("https://api.sleeper.app/v1/players/nfl");
+
+  if (!allPlayersRes.ok) {
+    throw new Error(`Sleeper-Spielermetadaten nicht abrufbar (HTTP ${allPlayersRes.status}).`);
+  }
+
+  const rawPlayers = await allPlayersRes.json();
+  const refreshedPlayers = {};
+
+  Object.entries(rawPlayers).forEach(([id, p]) => {
+    if (p.active && p.position && POS_SORT_ORDER[p.position]) {
+      const internalId = idBySleeper.get(String(id));
+
+      if (!internalId) {
+        throw new Error(`Keine eindeutige BS-ID für Sleeper-Spieler ${id} gefunden.`);
+      }
+
+      refreshedPlayers[id] = {
+        id,
+        internal_id: internalId,
+        gsis_id: p.gsis_id || null,
+        team: p.team || null,
+        name: p.full_name || `${p.first_name || ""} ${p.last_name || ""}`.trim(),
+        lastName: p.last_name || "",
+        pos: p.position,
+        positions: p.fantasy_positions || [p.position],
+        age: Number.isFinite(Number(p.age)) && p.age !== null ? Number(p.age) : null,
+        yearsExp: p.years_exp ?? 1,
+        draftRound: p.draft_round || null,
+        draftPick: p.draft_pick || null,
+        injuryOver50LastSeason: false,
+        perfScore: null,
+        snapPct: null,
+        contractScore: null,
+      };
+    }
+  });
+
+  appState.players = refreshedPlayers;
+  appState.settings.playerMetadataVersion = 4;
+}
+
         appState.dataQuality = buildDataQualityReport(nflPerfResult, snapResult, contractResult, rosterResult);
         renderDataQualityReport(appState.dataQuality);
 
