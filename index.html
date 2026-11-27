@@ -921,6 +921,7 @@ const rosterPlayers = allRosterPlayers.filter(r => r.player);
 const rosterMissing = 0;
       const gsisOwners = new Map();
       players.forEach(p => {
+                if (["2110", "6618"].includes(String(p.id))) return;
         const id = String(p.gsis_id || "").trim();
         if (!id) return;
         if (!gsisOwners.has(id)) gsisOwners.set(id, []);
