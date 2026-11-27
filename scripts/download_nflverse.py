@@ -22,7 +22,72 @@ ROSTER_YEARS_BACK = 3
 
 BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 SLEEPER_URL = "https://api.sleeper.app/v1/players/nfl"
+# Zentrale Sleeper-Datenbank mit täglichem Cache
+SLEEPER_CACHE_DIR = ROOT / "data"
+SLEEPER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+SLEEPER_CACHE_FILE = SLEEPER_CACHE_DIR / "sleeper_players.json"
+SLEEPER_UPDATE_FILE = SLEEPER_CACHE_DIR / "sleeper_last_update.json"
+
+LOCAL_TIMEZONE = ZoneInfo("Europe/Berlin")
+
+
+def load_sleeper_players():
+    today = datetime.now(LOCAL_TIMEZONE).date().isoformat()
+
+    # Prüfen, ob die Daten heute bereits erfolgreich gespeichert wurden.
+    try:
+        metadata = json.loads(
+            SLEEPER_UPDATE_FILE.read_text(encoding="utf-8")
+        )
+
+        cached_players = json.loads(
+            SLEEPER_CACHE_FILE.read_text(encoding="utf-8")
+        )
+
+        if (
+            metadata.get("last_successful_date") == today
+            and isinstance(cached_players, dict)
+            and cached_players
+        ):
+            print(f"Sleeper-Daten bereits heute geladen ({today}).")
+            print(f"Verwende gespeicherte {len(cached_players)} Spieler.")
+            return cached_players
+
+    except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        pass
+
+    # Kein gültiger Tages-Cache vorhanden: neu herunterladen.
+    print(f"Sleeper-Daten müssen aktualisiert werden ({today}).")
+
+    downloaded = request_bytes(SLEEPER_URL)
+    fresh_players = json.loads(downloaded.decode("utf-8"))
+
+    if not isinstance(fresh_players, dict) or not fresh_players:
+        raise RuntimeError("Sleeper-Datenbank leer oder ungültig.")
+
+    # Erst nach erfolgreicher Prüfung dauerhaft speichern.
+    temp_data = SLEEPER_CACHE_FILE.with_suffix(".tmp")
+    temp_data.write_bytes(downloaded)
+    temp_data.replace(SLEEPER_CACHE_FILE)
+
+    update_metadata = {
+        "last_successful_date": today,
+        "downloaded_at": datetime.now(LOCAL_TIMEZONE).isoformat(),
+        "source": SLEEPER_URL,
+        "player_count": len(fresh_players)
+    }
+
+    temp_metadata = SLEEPER_UPDATE_FILE.with_suffix(".tmp")
+    temp_metadata.write_text(
+        json.dumps(update_metadata, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8"
+    )
+    temp_metadata.replace(SLEEPER_UPDATE_FILE)
+
+    print(f"Sleeper-Daten erfolgreich gespeichert: {len(fresh_players)} Spieler.")
+
+    return fresh_players
 SUPPORTED_POSITIONS = {
     "QB", "RB", "WR", "TE", "K",
     "DL", "EDGE", "DT", "NT", "DE",
