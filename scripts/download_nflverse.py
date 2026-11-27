@@ -286,14 +286,9 @@ def build_player_id_map():
         if gsis:
             sleeper_gsis_counts[gsis] += 1
 
-    # Alte Spieler behalten ihre IDs, auch wenn sie aktuell
-    # nicht mehr in der Sleeper-Datenbank stehen.
+        # Die zentrale Datenbank enthält ausschließlich aktuelle Sleeper-Spieler.
+    # Alte Spieler-IDs bleiben lediglich reserviert.
     players = {}
-
-    for record in old_records:
-        record["in_sleeper"] = False
-        players[record["internal_id"]] = record
-
     unresolved = []
 
     # Alle Sleeper-Spieler berücksichtigen, nicht nur bestimmte Positionen.
