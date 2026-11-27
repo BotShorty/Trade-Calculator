@@ -1017,6 +1017,34 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
           <div class="quality-stat"><span class="muted">Verträge</span><strong>${report.coverage.contracts} %</strong><span class="muted">${report.matched.contracts}/${report.eligible.contracts} zugeordnet</span></div>
           <div class="quality-stat"><span class="muted">Doppelte GSIS-IDs</span><strong>${report.duplicateGsis}</strong><span class="muted">mehrdeutige IDs</span></div>
         </div>
+                ${report.duplicateGsisDetails?.length ? `
+          <div style="margin-top:12px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">
+            <strong style="font-size:13px;color:#991b1b;">
+              Doppelte GSIS-IDs – betroffene Spieler
+            </strong>
+
+            ${report.duplicateGsisDetails.map(group => `
+              <div style="margin-top:10px;padding-top:8px;border-top:1px solid #fecaca;">
+                <div style="font-size:12px;font-weight:700;color:#991b1b;">
+                  GSIS-ID: ${escapeHtml(group.gsisId)}
+                </div>
+
+                ${group.players.map(player => `
+                  <div style="margin-top:6px;font-size:12px;">
+                    <strong>${escapeHtml(player.name)}</strong>
+                    <div class="muted">
+                      ${escapeHtml(player.position)} · ${escapeHtml(player.team)}
+                    </div>
+                    <div class="muted">
+                      Sleeper-ID: ${escapeHtml(player.sleeperId)}
+                      · Interne ID: ${escapeHtml(player.internalId)}
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
         <p class="muted">Abdeckung für NFL-Spieler mit mindestens einem passenden Kaderstatus im rollierenden Drei-Jahres-Zeitraum ab ${report.rosterCutoff?.date || "dem Stichtag"}: ${report.rosterPlayers} eindeutige Spieler. Sleeper-Spielerdatenbank: ${report.players} Spieler. Fehlend: Leistung ${report.missing.perf}, Snaps ${report.missing.snaps}, Vertrag ${report.missing.contracts}.</p>
         <p class="muted">Kaderhistorie: ${report.sources?.rosters?.loaded || 0}/${report.sources?.rosters?.total || 0} Saisons geladen. Die Quelle ist wochenbasiert; der Stichtag wird auf die NFL-Woche gelegt, die das Datum einschließt.</p>
         ${report.contractSource?.unsupportedPositionRows ? `<p class="muted">${report.contractSource.unsupportedPositionRows} aktive Vertragszeilen für nicht unterstützte Positionen (z. B. Offensive Line) wurden übersprungen und nicht als Fehler gezählt.</p>` : ''}
