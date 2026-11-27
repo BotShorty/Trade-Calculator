@@ -148,6 +148,8 @@ def load_nflverse_players():
 
 def build_player_id_map():
     raw_players = load_sleeper_players()
+        public_sleeper_file = DATA / "sleeper_players.json"
+    public_sleeper_file.write_bytes(SLEEPER_CACHE_FILE.read_bytes())
     nflverse_rows = load_nflverse_players()
 
     # Bisherige Datenbank laden.
