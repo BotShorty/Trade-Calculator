@@ -298,7 +298,7 @@ def build_player_id_map():
 
         old_record = old_by_sleeper.get(sleeper_id)
 
-            if old_record:
+        if old_record:
             internal_id = old_record["internal_id"]
             record = dict(old_record)
         elif sleeper_id in reserved_sleeper_ids:
