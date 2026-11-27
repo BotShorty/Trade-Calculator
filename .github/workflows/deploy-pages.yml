@@ -46,6 +46,18 @@ jobs:
       - name: Download NFLverse datasets
         run: python scripts/download_nflverse.py
 
+      - name: Save updated player ID map
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add player_id_map.json
+          if git diff --cached --quiet; then
+            echo "Player ID map unchanged."
+          else
+            git commit -m "Update Sleeper player ID map"
+            git push origin HEAD:main
+          fi
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
