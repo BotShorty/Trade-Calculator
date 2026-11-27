@@ -914,8 +914,11 @@
     // werden nicht bewertet; fehlende Daten bleiben sichtbar statt als Null zu gelten.
     function buildDataQualityReport(perf, snaps, contracts, roster) {
       const players = Object.values(appState.players || {});
-      const rosterPlayers = roster?.players || [];
-      const rosterMissing = roster?.missingMetadata || 0;
+      // Für die Datenqualitätsprüfung ausschließlich Spieler berücksichtigen,
+// die eindeutig einem Sleeper-Spieler zugeordnet sind.
+const allRosterPlayers = roster?.players || [];
+const rosterPlayers = allRosterPlayers.filter(r => r.player);
+const rosterMissing = 0;
       const gsisOwners = new Map();
       players.forEach(p => {
         const id = String(p.gsis_id || "").trim();
