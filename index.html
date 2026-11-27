@@ -1436,60 +1436,6 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
         const needsPlayerMetadataRefresh =
         Object.keys(appState.players).length === 0 
 
-if (needsPlayerMetadataRefresh) {
-  const mapRes = await fetch("./player_id_map.json", { cache: "no-store" });
-
-  if (!mapRes.ok) {
-    throw new Error(`BS-ID-Zuordnung nicht abrufbar (HTTP ${mapRes.status}).`);
-  }
-
-  const mapData = await mapRes.json();
-
-  if (
-    !mapData ||
-    !mapData.players ||
-    typeof mapData.players !== "object" ||
-    mapData.id_format !== "BS0001-BSFFFF"
-  ) {
-    throw new Error("BS-ID-Zuordnung hat ein ungültiges Format.");
-  }
-
-  const idBySleeper = new Map();
-  const usedInternalIds = new Set();
-
-  Object.entries(mapData.players).forEach(([key, record]) => {
-    if (!record || record.in_sleeper !== true) return;
-
-    const internalId = record.internal_id;
-    const sleeperId = String(record.sleeper_id || "");
-
-    if (
-      key !== internalId ||
-      !/^BS[0-9A-F]{4}$/.test(internalId || "") ||
-      !sleeperId
-    ) {
-      throw new Error("Ungültiger Eintrag in der BS-ID-Zuordnung.");
-    }
-
-    if (usedInternalIds.has(internalId) || idBySleeper.has(sleeperId)) {
-      throw new Error("Doppelte Spieler-ID in der BS-ID-Zuordnung.");
-    }
-
-    usedInternalIds.add(internalId);
-    idBySleeper.set(sleeperId, internalId);
-  });
-
-  if (idBySleeper.size !== Number(mapData.player_count)) {
-    throw new Error("Spieleranzahl der BS-ID-Zuordnung stimmt nicht überein.");
-  }
-
-  const allPlayersRes = await fetch("https://api.sleeper.app/v1/players/nfl");
-
-  if (!allPlayersRes.ok) {
-    throw new Error(`Sleeper-Spielermetadaten nicht abrufbar (HTTP ${allPlayersRes.status}).`);
-  }
-
-  const rawPlayers = await allPlayersRes.json();
 
 
         const [nflPerfResult, snapResult, contractResult, rosterResult] = await Promise.all([
