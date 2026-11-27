@@ -298,7 +298,7 @@ def build_player_id_map():
 
         old_record = old_by_sleeper.get(sleeper_id)
 
-                if old_record:
+            if old_record:
             internal_id = old_record["internal_id"]
             record = dict(old_record)
         elif sleeper_id in reserved_sleeper_ids:
@@ -378,7 +378,7 @@ def build_player_id_map():
             1 for p in players.values() if p.get("in_sleeper")
         ),
         "registry_count": len(players),
-                "reserved_sleeper_ids": reserved_sleeper_ids,
+        "reserved_sleeper_ids": reserved_sleeper_ids,
         "reserved_internal_ids": sorted(reserved_internal_ids),
         "unresolved_count": len(unresolved),
         "players": players,
