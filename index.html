@@ -1402,7 +1402,6 @@ lightEl.title = "Spielerdatenbank erfolgreich aktualisiert";
 
         statusEl.textContent =
           `Spielerdatenbank erfolgreich aktualisiert: ${Object.keys(refreshedPlayers).length} Spieler.`;
-      }
        } catch (error) {
         console.error("Fehler bei der Spielerdatenbank-Aktualisierung:", error);
         statusEl.textContent = "Fehler: " + error.message;
