@@ -1303,6 +1303,9 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
    
     async function refreshPlayerDatabase() {
       const statusEl = document.getElementById("sync-status-text");
+      const lightEl = document.getElementById("player-db-status-light");
+lightEl.style.background = "#eab308";
+lightEl.title = "Spielerdatenbank wird aktualisiert";
       statusEl.textContent = "Spielerdatenbank wird aktualisiert...";
 
       try {
@@ -1394,9 +1397,13 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
         appState.players = refreshedPlayers;
         persistLocalState();
         renderDashboard();
+        lightEl.style.background = "#22c55e";
+lightEl.title = "Spielerdatenbank erfolgreich aktualisiert";
 
         statusEl.textContent =
           `Spielerdatenbank erfolgreich aktualisiert: ${Object.keys(refreshedPlayers).length} Spieler.`;
+        lightEl.style.background = "#ef4444";
+lightEl.title = "Fehler bei der Aktualisierung";
 
       } catch (error) {
         console.error("Fehler bei der Spielerdatenbank-Aktualisierung:", error);
