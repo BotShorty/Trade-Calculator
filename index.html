@@ -1717,7 +1717,7 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
     function persistLocalState() {
       const safeCopy = {
        settings: { username: appState.settings.username, leagueId: appState.settings.leagueId, userId: appState.settings.userId, currentWeek: appState.settings.currentWeek, currentSeason: appState.settings.currentSeason },
-        : appState.lastSyncTimestamp,
+        lastSyncTimestamp: appState.lastSyncTimestamp,
         players: appState.players,
         rosters: appState.rosters,
         users: appState.users,
