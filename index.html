@@ -994,10 +994,8 @@ const duplicateGsisDetails = duplicateGsis.map(group => ({
           perf:eligible.perf.length?Math.round(matched.perf/eligible.perf.length*100):0,
           snaps:eligible.snaps.length?Math.round(matched.snaps/eligible.snaps.length*100):0,
           contracts:eligible.contracts.length?Math.round(matched.contracts/eligible.contracts.length*100):0
-        }
-          duplicateGsis:duplicateGsis.length,
-duplicateGsisDetails,
-rosterMissing,issues,
+        },
+          duplicateGsis:duplicateGsis.length, duplicateGsisDetails, rosterMissing,issues,
         sources:{perf:{loaded:perf.loadedSeasons,total:perf.totalSeasons},snaps:{loaded:snaps.loadedSeasons,total:snaps.totalSeasons},rosters:{loaded:roster?.loadedSeasons||0,total:roster?.totalSeasons||0}},
         contractSource:{activeRows:contracts.activeContractRows||0,invalidRows:contracts.invalidContractRows||0,unsupportedPositionRows:contracts.unsupportedPositionRows||0}
       };
