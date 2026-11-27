@@ -1402,18 +1402,14 @@ lightEl.title = "Spielerdatenbank erfolgreich aktualisiert";
 
         statusEl.textContent =
           `Spielerdatenbank erfolgreich aktualisiert: ${Object.keys(refreshedPlayers).length} Spieler.`;
-      } catch (error) {
-        console.error("Fehler bei der Spielerdatenbank-Aktualisierung:", error);
-        statusEl.textContent = "Fehler: " + error.message;
-              } catch (error) {
+      }
+       } catch (error) {
         console.error("Fehler bei der Spielerdatenbank-Aktualisierung:", error);
         statusEl.textContent = "Fehler: " + error.message;
         lightEl.style.background = "#ef4444";
         lightEl.title = "Fehler bei der Aktualisierung";
       }
-      }
     }
- 
 
     async function manualSync() {
       const statusEl = document.getElementById("sync-status-text");
