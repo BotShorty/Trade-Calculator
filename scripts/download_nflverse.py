@@ -272,7 +272,7 @@ def build_player_id_map():
         "version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": "Sleeper NFL player database",
-        "id_format": "BS0001-BS9999",
+        "id_format": "BS0001-BSFFFF",
         "player_count": sum(
             1 for p in players.values() if p.get("in_sleeper")
         ),
