@@ -277,6 +277,208 @@ def build_player_id_map():
             1 for p in players.values() if p.get("in_sleeper")
         ),
         "registry_count": len(players),
+
+def build_player_id_map():
+    raw_players = load_sleeper_players()
+    nflverse_rows = load_nflverse_players()
+
+    # Bisherige Datenbank laden.
+    map_path = ROOT / "player_id_map.json"
+
+    try:
+        previous = json.loads(map_path.read_text(encoding="utf-8"))
+        previous_players = previous.get("players", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        previous = {}
+        previous_players = {}
+
+    # Bisherige Spielerdatensätze vereinheitlichen.
+    old_records = []
+
+    for old_key, old_record in previous_players.items():
+        record = dict(old_record)
+        record["internal_id"] = record.get("internal_id") or old_key
+        old_records.append(record)
+
+    # Einmalige Migration auf BS + vierstellige Hex-ID.
+    migrate_ids = previous.get("id_format") != "BS0001-BSFFFF"
+
+    if migrate_ids:
+        print("Migriere bestehende Spieler-IDs auf Hexadezimalformat...")
+
+        old_records.sort(
+            key=lambda r: str(r.get("sleeper_id") or "")
+        )
+
+        if len(old_records) > 65535:
+            raise RuntimeError("Mehr als 65.535 Spieler-IDs vorhanden.")
+
+        for number, record in enumerate(old_records, start=1):
+            record["internal_id"] = f"BS{number:04X}"
+
+    # Bereits vergebene IDs erfassen.
+    used_numbers = set()
+
+    for record in old_records:
+        internal_id = record.get("internal_id", "")
+
+        if (
+            isinstance(internal_id, str)
+            and len(internal_id) == 6
+            and internal_id.startswith("BS")
+            and all(c in "0123456789ABCDEF" for c in internal_id[2:])
+        ):
+            used_numbers.add(int(internal_id[2:], 16))
+
+    if len(used_numbers) != len(old_records):
+        raise RuntimeError("Ungültige oder doppelte bestehende BS-IDs.")
+
+    next_number = max(used_numbers, default=0) + 1
+
+    def new_internal_id():
+        nonlocal next_number
+
+        if next_number > 0xFFFF:
+            raise RuntimeError("Alle verfügbaren BS-Hex-IDs sind vergeben.")
+
+        result = f"BS{next_number:04X}"
+        next_number += 1
+        return result
+
+    # Alte Datensätze anhand der Sleeper-ID wiederfinden.
+    old_by_sleeper = {}
+
+    for record in old_records:
+        sleeper_id = clean(record.get("sleeper_id"))
+
+        if sleeper_id:
+            if sleeper_id in old_by_sleeper:
+                raise RuntimeError(
+                    f"Doppelte Sleeper-ID in bisheriger Datenbank: {sleeper_id}"
+                )
+
+            old_by_sleeper[sleeper_id] = record
+
+    # NFLverse-Verknüpfungen vorbereiten.
+    nflverse_by_gsis = defaultdict(set)
+    otc_to_gsis = defaultdict(set)
+    pfr_to_gsis = defaultdict(set)
+
+    for row in nflverse_rows:
+        gsis = clean(row.get("gsis_id"))
+        otc_id = clean(row.get("otc_id"))
+        pfr_id = clean(row.get("pfr_id"))
+
+        if gsis:
+            nflverse_by_gsis[gsis].add((otc_id, pfr_id))
+
+            if otc_id:
+                otc_to_gsis[otc_id].add(gsis)
+
+            if pfr_id:
+                pfr_to_gsis[pfr_id].add(gsis)
+
+    # Doppelte GSIS-IDs in Sleeper erkennen.
+    sleeper_gsis_counts = defaultdict(int)
+
+    for player in raw_players.values():
+        gsis = clean(player.get("gsis_id"))
+
+        if gsis:
+            sleeper_gsis_counts[gsis] += 1
+
+    # Alte Spieler behalten ihre IDs, auch wenn sie aktuell
+    # nicht mehr in der Sleeper-Datenbank stehen.
+    players = {}
+
+    for record in old_records:
+        record["in_sleeper"] = False
+        players[record["internal_id"]] = record
+
+    unresolved = []
+
+    # Alle Sleeper-Spieler berücksichtigen, nicht nur bestimmte Positionen.
+    for sleeper_id, player in raw_players.items():
+        sleeper_id = str(sleeper_id)
+        gsis = clean(player.get("gsis_id"))
+
+        old_record = old_by_sleeper.get(sleeper_id)
+
+        if old_record:
+            internal_id = old_record["internal_id"]
+            record = dict(old_record)
+        else:
+            internal_id = new_internal_id()
+            record = {}
+
+        record.update({
+            "internal_id": internal_id,
+            "sleeper_id": sleeper_id,
+            "gsis_id": gsis,
+            "otc_id": None,
+            "pfr_id": None,
+            "name": clean(player.get("full_name")) or (
+                f"{clean(player.get('first_name')) or ''} "
+                f"{clean(player.get('last_name')) or ''}"
+            ).strip(),
+            "position": clean(player.get("position")),
+            "team": clean(player.get("team")),
+            "active": player.get("active"),
+            "in_sleeper": True
+        })
+
+        if not gsis:
+            unresolved.append({
+                "internal_id": internal_id,
+                "sleeper_id": sleeper_id,
+                "reason": "Sleeper player has no GSIS ID"
+            })
+
+        elif sleeper_gsis_counts[gsis] != 1:
+            unresolved.append({
+                "internal_id": internal_id,
+                "sleeper_id": sleeper_id,
+                "gsis_id": gsis,
+                "reason": "GSIS ID is shared by multiple Sleeper players"
+            })
+
+        else:
+            nflverse_matches = nflverse_by_gsis.get(gsis, set())
+
+            if len(nflverse_matches) == 1:
+                otc_id, pfr_id = next(iter(nflverse_matches))
+
+                if otc_id and otc_to_gsis[otc_id] == {gsis}:
+                    record["otc_id"] = otc_id
+
+                if pfr_id and pfr_to_gsis[pfr_id] == {gsis}:
+                    record["pfr_id"] = pfr_id
+
+            elif len(nflverse_matches) > 1:
+                unresolved.append({
+                    "internal_id": internal_id,
+                    "sleeper_id": sleeper_id,
+                    "gsis_id": gsis,
+                    "reason": "Multiple conflicting NFLverse records for GSIS ID"
+                })
+
+        players[internal_id] = record
+
+    # Abschließende Eindeutigkeitsprüfung.
+    all_ids = [record["internal_id"] for record in players.values()]
+
+    if len(all_ids) != len(set(all_ids)):
+        raise RuntimeError("Doppelte interne BS-IDs erkannt.")
+
+    result = {
+        "version": 2,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "Sleeper NFL player database",
+        "id_format": "BS0001-BSFFFF",
+        "player_count": sum(
+            1 for p in players.values() if p.get("in_sleeper")
+        ),
+        "registry_count": len(players),
         "unresolved_count": len(unresolved),
         "players": players,
         "unresolved": unresolved
@@ -285,6 +487,7 @@ def build_player_id_map():
     output = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
 
     map_path.write_text(output, encoding="utf-8")
+
     (ROOT / "_site" / "player_id_map.json").write_text(
         output, encoding="utf-8"
     )
