@@ -1490,40 +1490,7 @@ if (needsPlayerMetadataRefresh) {
   }
 
   const rawPlayers = await allPlayersRes.json();
-  const refreshedPlayers = {};
 
-  Object.entries(rawPlayers).forEach(([id, p]) => {
-      if (p && typeof p === "object") {
-              if (String(p.full_name || "").trim() === "Duplicate Player") return;
-      const internalId = idBySleeper.get(String(id));
-
-      if (!internalId) {
-        throw new Error(`Keine eindeutige BS-ID für Sleeper-Spieler ${id} gefunden.`);
-      }
-
-      refreshedPlayers[id] = {
-        id,
-        internal_id: internalId,
-        gsis_id: p.gsis_id || null,
-        team: p.team || null,
-        name: p.full_name || `${p.first_name || ""} ${p.last_name || ""}`.trim(),
-        lastName: p.last_name || "",
-        pos: p.position,
-        positions: p.fantasy_positions || [p.position],
-        age: Number.isFinite(Number(p.age)) && p.age !== null ? Number(p.age) : null,
-        yearsExp: p.years_exp ?? 1,
-        draftRound: p.draft_round || null,
-        draftPick: p.draft_pick || null,
-        injuryOver50LastSeason: false,
-        perfScore: null,
-        snapPct: null,
-        contractScore: null,
-      };
-    }
-  });
-
-  appState.players = refreshedPlayers;
-}
 
         const [nflPerfResult, snapResult, contractResult, rosterResult] = await Promise.all([
   loadNflPerformanceData(),
