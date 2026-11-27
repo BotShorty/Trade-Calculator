@@ -1388,6 +1388,7 @@ if (needsPlayerMetadataRefresh) {
 
   Object.entries(rawPlayers).forEach(([id, p]) => {
       if (p && typeof p === "object") {
+              if (String(p.full_name || "").trim() === "Duplicate Player") return;
       const internalId = idBySleeper.get(String(id));
 
       if (!internalId) {
